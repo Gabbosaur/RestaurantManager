@@ -4,6 +4,8 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/l10n/language_provider.dart';
+import '../../../orders/presentation/providers/orders_provider.dart';
+import '../../../orders/presentation/widgets/order_slip_sheet.dart';
 import '../../data/models/table_model.dart';
 import '../providers/tables_provider.dart';
 
@@ -25,23 +27,44 @@ class TablesScreen extends ConsumerWidget {
             child: Row(
               children: [
                 _LegendItem(color: Colors.green, label: l10n.available),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 _LegendItem(color: Colors.red, label: l10n.occupied),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 _LegendItem(color: Colors.orange, label: l10n.reserved),
-                const SizedBox(width: 12),
-                _LegendItem(color: Colors.blue, label: l10n.cleaning),
                 const Spacer(),
                 if (isEditMode)
                   TextButton.icon(
-                    onPressed: () =>
-                        ref.read(editModeProvider.notifier).state = false,
+                    onPressed: () {
+                      ref.read(editModeProvider.notifier).state = false;
+                    },
                     icon: const Icon(Icons.check),
                     label: Text(l10n.done),
                   ),
               ],
             ),
           ),
+          if (isEditMode)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: Theme.of(context).colorScheme.primaryContainer,
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline,
+                      size: 18,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _getEditHint(language),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Expanded(
             child: tablesAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -72,12 +95,15 @@ class TablesScreen extends ConsumerWidget {
                   isEditMode: isEditMode,
                   l10n: l10n,
                   onTableTap: (table) =>
-                      _showTableActions(context, ref, table, l10n),
-                  onTableMoved: (tableId, posX, posY) {
+                      _showTableActions(context, ref, table, tables, l10n),
+                  onTableMoved: (tableId, posX, posY, tableSizePercentX,
+                      tableSizePercentY) {
                     ref.read(tablesProvider.notifier).updatePosition(
                           tableId,
                           posX,
                           posY,
+                          tableSizePercentX,
+                          tableSizePercentY,
                         );
                   },
                 );
@@ -111,99 +137,114 @@ class TablesScreen extends ConsumerWidget {
     );
   }
 
+  String _getEditHint(AppLanguage language) {
+    return switch (language) {
+      AppLanguage.italian =>
+        'Trascina i tavoli. Avvicinali per unirli automaticamente!',
+      AppLanguage.english =>
+        'Drag tables. Move them close together to join automatically!',
+      AppLanguage.chinese => '拖动桌子。靠近时会自动合并！',
+    };
+  }
+
   void _showAddTableDialog(
       BuildContext context, WidgetRef ref, AppLocalizations l10n) {
     final nameController = TextEditingController();
     final capacityController = TextEditingController(text: '4');
-    TableShape selectedShape = TableShape.square;
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: Text(l10n.addTable),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: InputDecoration(
-                  labelText: '${l10n.name} (T1, T2...)',
-                ),
+      builder: (context) => AlertDialog(
+        title: Text(l10n.addTable),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: InputDecoration(
+                labelText: '${l10n.name} (T1, T2...)',
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: capacityController,
-                decoration: InputDecoration(labelText: l10n.seats),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 12),
-              SegmentedButton<TableShape>(
-                segments: [
-                  ButtonSegment(
-                    value: TableShape.square,
-                    icon: const Icon(Icons.square_outlined),
-                    label: Text(l10n.square),
-                  ),
-                  ButtonSegment(
-                    value: TableShape.round,
-                    icon: const Icon(Icons.circle_outlined),
-                    label: Text(l10n.round),
-                  ),
-                  ButtonSegment(
-                    value: TableShape.rectangle,
-                    icon: const Icon(Icons.rectangle_outlined),
-                    label: Text(l10n.rectangle),
-                  ),
-                ],
-                selected: {selectedShape},
-                onSelectionChanged: (shapes) {
-                  setState(() => selectedShape = shapes.first);
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(l10n.cancel),
             ),
-            FilledButton(
-              onPressed: () {
-                final tables = ref.read(tablesProvider).valueOrNull ?? [];
-                double posX = 10;
-                double posY = 10;
-                for (int i = 0; i < tables.length; i++) {
-                  posX = (i % 4) * 22 + 10;
-                  posY = (i ~/ 4) * 22 + 10;
-                }
-
-                final table = TableModel(
-                  id: const Uuid().v4(),
-                  name: nameController.text.isNotEmpty
-                      ? nameController.text
-                      : 'T${tables.length + 1}',
-                  capacity: int.tryParse(capacityController.text) ?? 4,
-                  status: TableStatus.available,
-                  shape: selectedShape,
-                  posX: posX,
-                  posY: posY,
-                  width: selectedShape == TableShape.rectangle ? 18 : 12,
-                  height: 12,
-                );
-                ref.read(tablesProvider.notifier).addTable(table);
-                Navigator.pop(context);
-              },
-              child: Text(l10n.add),
+            const SizedBox(height: 12),
+            TextField(
+              controller: capacityController,
+              decoration: InputDecoration(labelText: l10n.seats),
+              keyboardType: TextInputType.number,
             ),
           ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () {
+              final tables = ref.read(tablesProvider).valueOrNull ?? [];
+              // Usa la dimensione dei tavoli esistenti, o 10 come default
+              final existingSize = tables.isNotEmpty ? tables.first.width : 10.0;
+              
+              double posX = 5;
+              double posY = 5;
+              for (int i = 0; i <= tables.length; i++) {
+                posX = (i % 5) * (existingSize + 6) + 5;
+                posY = (i ~/ 5) * (existingSize + 6) + 5;
+              }
+
+              final table = TableModel(
+                id: const Uuid().v4(),
+                name: nameController.text.isNotEmpty
+                    ? nameController.text
+                    : 'T${tables.length + 1}',
+                capacity: int.tryParse(capacityController.text) ?? 4,
+                status: TableStatus.available,
+                posX: posX,
+                posY: posY,
+                width: existingSize,
+                height: existingSize,
+              );
+              ref.read(tablesProvider.notifier).addTable(table);
+              Navigator.pop(context);
+            },
+            child: Text(l10n.add),
+          ),
+        ],
       ),
     );
   }
 
   void _showTableActions(BuildContext context, WidgetRef ref, TableModel table,
-      AppLocalizations l10n) {
+      List<TableModel> allTables, AppLocalizations l10n) {
+    final language = ref.read(languageProvider);
+
+    // If table is occupied, open the order slip directly
+    if (table.status == TableStatus.occupied) {
+      final order =
+          ref.read(ordersProvider.notifier).getActiveOrderForTable(table.id);
+      if (order != null) {
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          useSafeArea: true,
+          backgroundColor: Colors.transparent,
+          builder: (context) => OrderSlipSheet(table: table, order: order),
+        );
+        return;
+      }
+    }
+
+    // Get group info
+    List<TableModel> groupTables = [];
+    int totalCapacity = table.capacity;
+    String displayName = table.name;
+
+    if (table.groupId != null) {
+      groupTables =
+          allTables.where((t) => t.groupId == table.groupId).toList();
+      totalCapacity = groupTables.fold(0, (sum, t) => sum + t.capacity);
+      displayName = groupTables.map((t) => t.name).join('+');
+    }
+
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
@@ -216,8 +257,16 @@ class TablesScreen extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  if (table.isGrouped)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Icon(
+                        Icons.link,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
                   Text(
-                    table.name,
+                    displayName,
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   const SizedBox(width: 8),
@@ -226,7 +275,7 @@ class TablesScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                '${table.capacity} ${l10n.seats}',
+                '$totalCapacity ${l10n.seats}${table.isGrouped ? ' (${_getJoinedLabel(language)})' : ''}',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
@@ -274,22 +323,23 @@ class TablesScreen extends ConsumerWidget {
                       },
                       child: Text(l10n.reserve),
                     ),
-                  if (table.status == TableStatus.occupied)
-                    FilledButton.tonal(
-                      onPressed: () {
-                        ref
-                            .read(tablesProvider.notifier)
-                            .updateStatus(table.id, TableStatus.cleaning);
-                        Navigator.pop(context);
-                      },
-                      child: Text(l10n.needsCleaning),
-                    ),
                 ],
               ),
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
+                  if (table.isGrouped)
+                    TextButton.icon(
+                      onPressed: () {
+                        ref
+                            .read(tablesProvider.notifier)
+                            .separateGroup(table.groupId!);
+                        Navigator.pop(context);
+                      },
+                      icon: const Icon(Icons.link_off),
+                      label: Text(_getSeparateLabel(language)),
+                    ),
                   TextButton.icon(
                     onPressed: () {
                       Navigator.pop(context);
@@ -298,19 +348,20 @@ class TablesScreen extends ConsumerWidget {
                     icon: const Icon(Icons.edit),
                     label: Text(l10n.edit),
                   ),
-                  TextButton.icon(
-                    onPressed: () {
-                      ref.read(tablesProvider.notifier).deleteTable(table.id);
-                      Navigator.pop(context);
-                    },
-                    icon: Icon(Icons.delete,
-                        color: Theme.of(context).colorScheme.error),
-                    label: Text(
-                      l10n.delete,
-                      style:
-                          TextStyle(color: Theme.of(context).colorScheme.error),
+                  if (!table.isGrouped)
+                    TextButton.icon(
+                      onPressed: () {
+                        ref.read(tablesProvider.notifier).deleteTable(table.id);
+                        Navigator.pop(context);
+                      },
+                      icon: Icon(Icons.delete,
+                          color: Theme.of(context).colorScheme.error),
+                      label: Text(
+                        l10n.delete,
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.error),
+                      ),
                     ),
-                  ),
                 ],
               ),
             ],
@@ -320,74 +371,64 @@ class TablesScreen extends ConsumerWidget {
     );
   }
 
+  String _getJoinedLabel(AppLanguage language) {
+    return switch (language) {
+      AppLanguage.italian => 'uniti',
+      AppLanguage.english => 'joined',
+      AppLanguage.chinese => '已合并',
+    };
+  }
+
+  String _getSeparateLabel(AppLanguage language) {
+    return switch (language) {
+      AppLanguage.italian => 'Separa',
+      AppLanguage.english => 'Separate',
+      AppLanguage.chinese => '分开',
+    };
+  }
+
   void _showEditTableDialog(BuildContext context, WidgetRef ref,
       TableModel table, AppLocalizations l10n) {
     final nameController = TextEditingController(text: table.name);
     final capacityController =
         TextEditingController(text: table.capacity.toString());
-    TableShape selectedShape = table.shape;
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: Text(l10n.edit),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: InputDecoration(labelText: l10n.name),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: capacityController,
-                decoration: InputDecoration(labelText: l10n.seats),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 12),
-              SegmentedButton<TableShape>(
-                segments: [
-                  ButtonSegment(
-                    value: TableShape.square,
-                    icon: const Icon(Icons.square_outlined),
-                  ),
-                  ButtonSegment(
-                    value: TableShape.round,
-                    icon: const Icon(Icons.circle_outlined),
-                  ),
-                  ButtonSegment(
-                    value: TableShape.rectangle,
-                    icon: const Icon(Icons.rectangle_outlined),
-                  ),
-                ],
-                selected: {selectedShape},
-                onSelectionChanged: (shapes) {
-                  setState(() => selectedShape = shapes.first);
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(l10n.cancel),
+      builder: (context) => AlertDialog(
+        title: Text(l10n.edit),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: InputDecoration(labelText: l10n.name),
             ),
-            FilledButton(
-              onPressed: () {
-                final updated = table.copyWith(
-                  name: nameController.text,
-                  capacity: int.tryParse(capacityController.text) ?? 4,
-                  shape: selectedShape,
-                  width: selectedShape == TableShape.rectangle ? 18 : 12,
-                );
-                ref.read(tablesProvider.notifier).updateTable(updated);
-                Navigator.pop(context);
-              },
-              child: Text(l10n.save),
+            const SizedBox(height: 12),
+            TextField(
+              controller: capacityController,
+              decoration: InputDecoration(labelText: l10n.seats),
+              keyboardType: TextInputType.number,
             ),
           ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () {
+              final updated = table.copyWith(
+                name: nameController.text,
+                capacity: int.tryParse(capacityController.text) ?? 4,
+              );
+              ref.read(tablesProvider.notifier).updateTable(updated);
+              Navigator.pop(context);
+            },
+            child: Text(l10n.save),
+          ),
+        ],
       ),
     );
   }
@@ -427,12 +468,13 @@ class TablesScreen extends ConsumerWidget {
   }
 }
 
-class _FloorPlan extends StatelessWidget {
+class _FloorPlan extends ConsumerStatefulWidget {
   final List<TableModel> tables;
   final bool isEditMode;
   final AppLocalizations l10n;
   final void Function(TableModel) onTableTap;
-  final void Function(String tableId, double posX, double posY) onTableMoved;
+  final void Function(String tableId, double posX, double posY,
+      double tableSizePercentX, double tableSizePercentY) onTableMoved;
 
   const _FloorPlan({
     required this.tables,
@@ -443,140 +485,240 @@ class _FloorPlan extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isEditMode
-              ? Theme.of(context).colorScheme.primary
-              : Theme.of(context).colorScheme.outlineVariant,
-          width: isEditMode ? 2 : 1,
-        ),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final floorWidth = constraints.maxWidth;
-          final floorHeight = constraints.maxHeight;
+  ConsumerState<_FloorPlan> createState() => _FloorPlanState();
+}
 
-          return Stack(
+class _FloorPlanState extends ConsumerState<_FloorPlan> {
+  String? _draggingTableId;
+  String? _snapTargetId;
+
+  @override
+  Widget build(BuildContext context) {
+    // Group tables by groupId for visual connection
+    final groups = <String, List<TableModel>>{};
+    for (final table in widget.tables) {
+      if (table.groupId != null) {
+        groups.putIfAbsent(table.groupId!, () => []).add(table);
+      }
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final floorWidth = constraints.maxWidth;
+        final floorHeight = constraints.maxHeight;
+
+        return Container(
+          width: floorWidth,
+          height: floorHeight,
+          margin: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: widget.isEditMode
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).colorScheme.outlineVariant,
+              width: widget.isEditMode ? 2 : 1,
+            ),
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
             children: [
-              if (isEditMode)
-                CustomPaint(
-                  size: Size(floorWidth, floorHeight),
-                  painter: _GridPainter(
-                    color: Theme.of(context).colorScheme.outlineVariant,
+              if (widget.isEditMode)
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _GridPainter(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
                   ),
                 ),
-              ...tables.map((table) {
-                final left = (table.posX / 100) * floorWidth;
-                final top = (table.posY / 100) * floorHeight;
-                final width = (table.width / 100) * floorWidth;
-                final height = (table.height / 100) * floorHeight;
+              // Draw group backgrounds
+              ...groups.entries.map((entry) {
+                final groupTables = entry.value;
+                if (groupTables.length < 2) return const SizedBox.shrink();
+
+                final actualFloorWidth = floorWidth - 16;
+                final actualFloorHeight = floorHeight - 16;
+                // Dimensione fissa dei tavoli in pixel
+                const double tablePixelSize = 60.0;
+
+                // Calcola bounding box in pixel
+                double minLeft = double.infinity;
+                double minTop = double.infinity;
+                double maxRight = 0;
+                double maxBottom = 0;
+
+                for (final t in groupTables) {
+                  final tLeft = (t.posX / 100) * actualFloorWidth;
+                  final tTop = (t.posY / 100) * actualFloorHeight;
+                  if (tLeft < minLeft) minLeft = tLeft;
+                  if (tTop < minTop) minTop = tTop;
+                  if (tLeft + tablePixelSize > maxRight) {
+                    maxRight = tLeft + tablePixelSize;
+                  }
+                  if (tTop + tablePixelSize > maxBottom) {
+                    maxBottom = tTop + tablePixelSize;
+                  }
+                }
+
+                return Positioned(
+                  left: minLeft - 4,
+                  top: minTop - 4,
+                  child: Container(
+                    width: maxRight - minLeft + 8,
+                    height: maxBottom - minTop + 8,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primaryContainer
+                          .withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.primary,
+                        width: 2,
+                        strokeAlign: BorderSide.strokeAlignOutside,
+                      ),
+                    ),
+                  ),
+                );
+              }),
+              // Tables
+              ...widget.tables.map((table) {
+                final actualFloorWidth = floorWidth - 16;
+                final actualFloorHeight = floorHeight - 16;
+                // Dimensione fissa dei tavoli in pixel
+                const double tablePixelSize = 60.0;
+                // Calcola le percentuali separate per X e Y
+                final tableSizePercentX =
+                    (tablePixelSize / actualFloorWidth) * 100;
+                final tableSizePercentY =
+                    (tablePixelSize / actualFloorHeight) * 100;
+
+                final left = (table.posX / 100) * actualFloorWidth;
+                final top = (table.posY / 100) * actualFloorHeight;
+
+                final isSnapTarget = _snapTargetId == table.id;
 
                 return Positioned(
                   left: left,
                   top: top,
-                  child: isEditMode
+                  child: widget.isEditMode
                       ? Draggable<TableModel>(
                           data: table,
                           feedback: Material(
                             elevation: 8,
-                            borderRadius: BorderRadius.circular(
-                              table.shape == TableShape.round ? 100 : 8,
-                            ),
+                            borderRadius: BorderRadius.circular(8),
                             child: _TableWidget(
                               table: table,
-                              width: width,
-                              height: height,
+                              size: tablePixelSize,
                               isDragging: true,
+                              willSnap: false, // Il feedback non può aggiornarsi
                             ),
                           ),
                           childWhenDragging: Opacity(
                             opacity: 0.3,
                             child: _TableWidget(
                               table: table,
-                              width: width,
-                              height: height,
+                              size: tablePixelSize,
                             ),
                           ),
+                          onDragStarted: () {
+                            setState(() {
+                              _draggingTableId = table.id;
+                              _snapTargetId = null;
+                            });
+                          },
+                          onDragUpdate: (details) {
+                            final RenderBox? box =
+                                context.findRenderObject() as RenderBox?;
+                            if (box == null) return;
+                            
+                            final localPos =
+                                box.globalToLocal(details.globalPosition);
+
+                            // Centra la posizione sul cursore
+                            double newPosX =
+                                ((localPos.dx - tablePixelSize / 2) / actualFloorWidth) * 100;
+                            double newPosY =
+                                ((localPos.dy - tablePixelSize / 2) / actualFloorHeight) * 100;
+
+                            final snapTarget = ref
+                                .read(tablesProvider.notifier)
+                                .checkSnapTarget(table.id, newPosX, newPosY,
+                                    tableSizePercentX, tableSizePercentY);
+
+                            if (snapTarget != _snapTargetId) {
+                              setState(() {
+                                _snapTargetId = snapTarget;
+                              });
+                            }
+                          },
                           onDragEnd: (details) {
-                            final RenderBox box =
-                                context.findRenderObject() as RenderBox;
+                            final RenderBox? box =
+                                context.findRenderObject() as RenderBox?;
+                            if (box == null) return;
+                            
                             final localPos = box.globalToLocal(details.offset);
 
-                            double newPosX = (localPos.dx / floorWidth) * 100;
-                            double newPosY = (localPos.dy / floorHeight) * 100;
+                            double newPosX =
+                                (localPos.dx / actualFloorWidth) * 100;
+                            double newPosY =
+                                (localPos.dy / actualFloorHeight) * 100;
 
-                            newPosX = newPosX.clamp(0, 100 - table.width);
-                            newPosY = newPosY.clamp(0, 100 - table.height);
+                            newPosX = newPosX.clamp(0, 100 - tableSizePercentX);
+                            newPosY = newPosY.clamp(0, 100 - tableSizePercentY);
 
-                            onTableMoved(table.id, newPosX, newPosY);
+                            widget.onTableMoved(table.id, newPosX, newPosY,
+                                tableSizePercentX, tableSizePercentY);
+
+                            setState(() {
+                              _draggingTableId = null;
+                              _snapTargetId = null;
+                            });
+                          },
+                          onDraggableCanceled: (_, __) {
+                            setState(() {
+                              _draggingTableId = null;
+                              _snapTargetId = null;
+                            });
                           },
                           child: _TableWidget(
                             table: table,
-                            width: width,
-                            height: height,
-                            onTap: () => onTableTap(table),
+                            size: tablePixelSize,
+                            onTap: () => widget.onTableTap(table),
+                            isSnapTarget: isSnapTarget,
                           ),
                         )
                       : _TableWidget(
                           table: table,
-                          width: width,
-                          height: height,
-                          onTap: () => onTableTap(table),
+                          size: tablePixelSize,
+                          onTap: () => widget.onTableTap(table),
                         ),
                 );
               }),
-              if (isEditMode)
-                Positioned(
-                  bottom: 8,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Text(
-                        l10n.dragToPosition,
-                        style: TextStyle(
-                          color:
-                              Theme.of(context).colorScheme.onPrimaryContainer,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
             ],
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }
 
 class _TableWidget extends StatelessWidget {
   final TableModel table;
-  final double width;
-  final double height;
+  final double size; // Tavolo quadrato
   final VoidCallback? onTap;
   final bool isDragging;
+  final bool isSnapTarget;
+  final bool willSnap;
 
   const _TableWidget({
     required this.table,
-    required this.width,
-    required this.height,
+    required this.size,
     this.onTap,
     this.isDragging = false,
+    this.isSnapTarget = false,
+    this.willSnap = false,
   });
 
   @override
@@ -588,25 +730,31 @@ class _TableWidget extends StatelessWidget {
       TableStatus.cleaning => Colors.blue,
     };
 
-    final borderRadius = table.shape == TableShape.round
-        ? BorderRadius.circular(100)
-        : BorderRadius.circular(8);
+    // Colore speciale quando è target di snap
+    final borderColor = isSnapTarget ? Colors.amber : color;
+    final borderWidth = isSnapTarget ? 3.0 : 2.0;
 
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: width,
-        height: height,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: size,
+        height: size,
         decoration: BoxDecoration(
-          color: color.withOpacity(isDragging ? 0.8 : 0.2),
-          borderRadius: borderRadius,
-          border: Border.all(color: color, width: 2),
-          boxShadow: isDragging
+          color: isSnapTarget
+              ? Colors.amber.withOpacity(0.4)
+              : willSnap
+                  ? Colors.amber.withOpacity(0.6)
+                  : color.withOpacity(isDragging ? 0.9 : 0.3),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: borderColor, width: borderWidth),
+          boxShadow: isDragging || isSnapTarget
               ? [
                   BoxShadow(
-                    color: color.withOpacity(0.4),
-                    blurRadius: 8,
-                    spreadRadius: 2,
+                    color: (willSnap || isSnapTarget ? Colors.amber : color)
+                        .withOpacity(0.5),
+                    blurRadius: 12,
+                    spreadRadius: isSnapTarget ? 4 : 2,
                   )
                 ]
               : null,
@@ -615,21 +763,61 @@ class _TableWidget extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (willSnap || isSnapTarget)
+                Icon(
+                  Icons.link,
+                  size: size > 50 ? 16 : 12,
+                  color: Colors.amber.shade800,
+                ),
               Text(
                 table.name,
                 style: TextStyle(
-                  color: color,
+                  color: isSnapTarget || willSnap
+                      ? Colors.amber.shade900
+                      : color.computeLuminance() > 0.5
+                          ? Colors.black87
+                          : isDragging
+                              ? Colors.white
+                              : color,
                   fontWeight: FontWeight.bold,
-                  fontSize: width > 60 ? 14 : 11,
+                  fontSize: size > 50 ? 13 : 11,
                 ),
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
               ),
-              Text(
-                '${table.capacity}p',
-                style: TextStyle(
-                  color: color.withOpacity(0.8),
-                  fontSize: width > 60 ? 11 : 9,
-                ),
-              ),
+              if (!willSnap && !isSnapTarget)
+                // Show number of people if occupied, otherwise show capacity
+                table.status == TableStatus.occupied && table.numberOfPeople != null
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.people,
+                            size: size > 50 ? 12 : 10,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            '${table.numberOfPeople}',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: size > 50 ? 11 : 9,
+                            ),
+                          ),
+                        ],
+                      )
+                    : Text(
+                        '${table.capacity}',
+                        style: TextStyle(
+                          color: color.computeLuminance() > 0.5
+                              ? Colors.black54
+                              : isDragging
+                                  ? Colors.white70
+                                  : color.withOpacity(0.8),
+                          fontSize: size > 50 ? 11 : 9,
+                        ),
+                      ),
             ],
           ),
         ),

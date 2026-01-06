@@ -59,15 +59,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.language),
-            tooltip: l10n.language,
+            tooltip: l10n.languageLabel,
             onPressed: () => _showLanguageDialog(context, ref, l10n),
           ),
+          // Exit to role selection
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await SupabaseService.signOut();
-              if (mounted) context.go('/login');
-            },
+            icon: const Icon(Icons.exit_to_app),
+            tooltip: l10n.exit,
+            onPressed: () => context.go('/role'),
           ),
         ],
       ),
@@ -85,7 +84,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(l10n.language),
+        title: Text(l10n.languageLabel),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: AppLanguage.values.map((lang) {

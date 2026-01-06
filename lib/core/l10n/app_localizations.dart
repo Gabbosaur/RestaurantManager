@@ -398,7 +398,7 @@ class AppLocalizations {
         AppLanguage.chinese => '设置',
       };
 
-  String get language => switch (language) {
+  String get languageLabel => switch (language) {
         AppLanguage.italian => 'Lingua',
         AppLanguage.english => 'Language',
         AppLanguage.chinese => '语言',
@@ -470,5 +470,139 @@ class AppLocalizations {
         AppLanguage.italian => 'Rettangolo',
         AppLanguage.english => 'Rectangle',
         AppLanguage.chinese => '长方形',
+      };
+
+  // Kitchen
+  String get kitchen => switch (language) {
+        AppLanguage.italian => 'Cucina',
+        AppLanguage.english => 'Kitchen',
+        AppLanguage.chinese => '厨房',
+      };
+
+  String get newOrders => switch (language) {
+        AppLanguage.italian => 'Nuovi',
+        AppLanguage.english => 'New',
+        AppLanguage.chinese => '新订单',
+      };
+
+  String get inPreparation => switch (language) {
+        AppLanguage.italian => 'In Preparazione',
+        AppLanguage.english => 'In Preparation',
+        AppLanguage.chinese => '准备中',
+      };
+
+  String get readyToServe => switch (language) {
+        AppLanguage.italian => 'Pronti',
+        AppLanguage.english => 'Ready',
+        AppLanguage.chinese => '已完成',
+      };
+
+  String get startPreparing => switch (language) {
+        AppLanguage.italian => 'Inizia',
+        AppLanguage.english => 'Start',
+        AppLanguage.chinese => '开始',
+      };
+
+  String get markReady => switch (language) {
+        AppLanguage.italian => 'Pronto!',
+        AppLanguage.english => 'Ready!',
+        AppLanguage.chinese => '完成!',
+      };
+
+  String get noNewOrders => switch (language) {
+        AppLanguage.italian => 'Nessun nuovo ordine',
+        AppLanguage.english => 'No new orders',
+        AppLanguage.chinese => '暂无新订单',
+      };
+
+  String get noPreparing => switch (language) {
+        AppLanguage.italian => 'Nessun ordine in preparazione',
+        AppLanguage.english => 'No orders in preparation',
+        AppLanguage.chinese => '暂无准备中的订单',
+      };
+
+  String get noReady => switch (language) {
+        AppLanguage.italian => 'Nessun ordine pronto',
+        AppLanguage.english => 'No orders ready',
+        AppLanguage.chinese => '暂无已完成订单',
+      };
+
+  String minutesAgo(int minutes) => switch (language) {
+        AppLanguage.italian => '$minutes min fa',
+        AppLanguage.english => '$minutes min ago',
+        AppLanguage.chinese => '$minutes 分钟前',
+      };
+
+  String get justNow => switch (language) {
+        AppLanguage.italian => 'Adesso',
+        AppLanguage.english => 'Just now',
+        AppLanguage.chinese => '刚刚',
+      };
+
+  String get exit => switch (language) {
+        AppLanguage.italian => 'Esci',
+        AppLanguage.english => 'Exit',
+        AppLanguage.chinese => '退出',
+      };
+
+  String get selectRole => switch (language) {
+        AppLanguage.italian => 'Seleziona Ruolo',
+        AppLanguage.english => 'Select Role',
+        AppLanguage.chinese => '选择角色',
+      };
+
+  String get diningRoom => switch (language) {
+        AppLanguage.italian => 'Sala',
+        AppLanguage.english => 'Dining Room',
+        AppLanguage.chinese => '餐厅',
+      };
+
+  String get diningRoomDesc => switch (language) {
+        AppLanguage.italian => 'Gestisci ordini, tavoli e menu',
+        AppLanguage.english => 'Manage orders, tables and menu',
+        AppLanguage.chinese => '管理订单、餐桌和菜单',
+      };
+
+  String get kitchenDesc => switch (language) {
+        AppLanguage.italian => 'Visualizza e prepara gli ordini',
+        AppLanguage.english => 'View and prepare orders',
+        AppLanguage.chinese => '查看和准备订单',
+      };
+
+  // Order slip
+  String get drinks => switch (language) {
+        AppLanguage.italian => 'Bevande',
+        AppLanguage.english => 'Drinks',
+        AppLanguage.chinese => '饮料',
+      };
+
+  String get unsavedChanges => switch (language) {
+        AppLanguage.italian => 'Modifiche non salvate',
+        AppLanguage.english => 'Unsaved changes',
+        AppLanguage.chinese => '未保存的更改',
+      };
+
+  String get discardChangesQuestion => switch (language) {
+        AppLanguage.italian => 'Vuoi salvare le modifiche prima di uscire?',
+        AppLanguage.english => 'Do you want to save changes before leaving?',
+        AppLanguage.chinese => '离开前要保存更改吗？',
+      };
+
+  String get discard => switch (language) {
+        AppLanguage.italian => 'Scarta',
+        AppLanguage.english => 'Discard',
+        AppLanguage.chinese => '放弃',
+      };
+
+  String get openOrder => switch (language) {
+        AppLanguage.italian => 'Apri Comanda',
+        AppLanguage.english => 'Open Order',
+        AppLanguage.chinese => '打开订单',
+      };
+
+  String get selectTable => switch (language) {
+        AppLanguage.italian => 'Seleziona un tavolo',
+        AppLanguage.english => 'Select a table',
+        AppLanguage.chinese => '选择餐桌',
       };
 }

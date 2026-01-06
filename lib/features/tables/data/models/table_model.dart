@@ -2,19 +2,18 @@ import 'package:equatable/equatable.dart';
 
 enum TableStatus { available, occupied, reserved, cleaning }
 
-enum TableShape { square, round, rectangle }
-
 class TableModel extends Equatable {
   final String id;
   final String name;
   final int capacity;
   final TableStatus status;
-  final TableShape shape;
-  final double posX; // Position X (0-100 percentage)
-  final double posY; // Position Y (0-100 percentage)
-  final double width; // Width (percentage of floor)
-  final double height; // Height (percentage of floor)
+  final double posX;
+  final double posY;
+  final double width;
+  final double height;
+  final String? groupId; // If set, this table is part of a group
   final String? currentOrderId;
+  final int? numberOfPeople; // Number of people currently at the table
   final DateTime? reservedAt;
   final String? reservedBy;
 
@@ -23,15 +22,18 @@ class TableModel extends Equatable {
     required this.name,
     required this.capacity,
     required this.status,
-    this.shape = TableShape.square,
     this.posX = 0,
     this.posY = 0,
-    this.width = 12,
-    this.height = 12,
+    this.width = 10,
+    this.height = 10,
+    this.groupId,
     this.currentOrderId,
+    this.numberOfPeople,
     this.reservedAt,
     this.reservedBy,
   });
+
+  bool get isGrouped => groupId != null;
 
   factory TableModel.fromJson(Map<String, dynamic> json) {
     return TableModel(
@@ -42,15 +44,13 @@ class TableModel extends Equatable {
         (e) => e.name == json['status'],
         orElse: () => TableStatus.available,
       ),
-      shape: TableShape.values.firstWhere(
-        (e) => e.name == json['shape'],
-        orElse: () => TableShape.square,
-      ),
       posX: (json['pos_x'] ?? 0).toDouble(),
       posY: (json['pos_y'] ?? 0).toDouble(),
-      width: (json['width'] ?? 12).toDouble(),
-      height: (json['height'] ?? 12).toDouble(),
+      width: (json['width'] ?? 10).toDouble(),
+      height: (json['height'] ?? 10).toDouble(),
+      groupId: json['group_id'],
       currentOrderId: json['current_order_id'],
+      numberOfPeople: json['number_of_people'],
       reservedAt: json['reserved_at'] != null
           ? DateTime.parse(json['reserved_at'])
           : null,
@@ -63,12 +63,13 @@ class TableModel extends Equatable {
         'name': name,
         'capacity': capacity,
         'status': status.name,
-        'shape': shape.name,
         'pos_x': posX,
         'pos_y': posY,
         'width': width,
         'height': height,
+        'group_id': groupId,
         'current_order_id': currentOrderId,
+        'number_of_people': numberOfPeople,
         'reserved_at': reservedAt?.toIso8601String(),
         'reserved_by': reservedBy,
       };
@@ -78,12 +79,13 @@ class TableModel extends Equatable {
     String? name,
     int? capacity,
     TableStatus? status,
-    TableShape? shape,
     double? posX,
     double? posY,
     double? width,
     double? height,
+    String? groupId,
     String? currentOrderId,
+    int? numberOfPeople,
     DateTime? reservedAt,
     String? reservedBy,
   }) {
@@ -92,12 +94,13 @@ class TableModel extends Equatable {
       name: name ?? this.name,
       capacity: capacity ?? this.capacity,
       status: status ?? this.status,
-      shape: shape ?? this.shape,
       posX: posX ?? this.posX,
       posY: posY ?? this.posY,
       width: width ?? this.width,
       height: height ?? this.height,
+      groupId: groupId ?? this.groupId,
       currentOrderId: currentOrderId ?? this.currentOrderId,
+      numberOfPeople: numberOfPeople ?? this.numberOfPeople,
       reservedAt: reservedAt ?? this.reservedAt,
       reservedBy: reservedBy ?? this.reservedBy,
     );
@@ -109,12 +112,13 @@ class TableModel extends Equatable {
         name,
         capacity,
         status,
-        shape,
         posX,
         posY,
         width,
         height,
+        groupId,
         currentOrderId,
+        numberOfPeople,
         reservedAt,
         reservedBy,
       ];

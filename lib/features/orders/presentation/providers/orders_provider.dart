@@ -43,4 +43,29 @@ class OrdersNotifier extends AsyncNotifier<List<OrderModel>> {
     await SupabaseService.client.from('orders').delete().eq('id', orderId);
     ref.invalidateSelf();
   }
+
+  Future<void> updateOrderItems(
+      String orderId, List<OrderItem> items, double total) async {
+    await SupabaseService.client.from('orders').update({
+      'items': items.map((e) => e.toJson()).toList(),
+      'total': total,
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', orderId);
+    ref.invalidateSelf();
+  }
+
+  /// Get active order for a specific table
+  OrderModel? getActiveOrderForTable(String tableId) {
+    final orders = state.valueOrNull ?? [];
+    try {
+      return orders.firstWhere(
+        (o) =>
+            o.tableId == tableId &&
+            o.status != OrderStatus.served &&
+            o.status != OrderStatus.cancelled,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 }

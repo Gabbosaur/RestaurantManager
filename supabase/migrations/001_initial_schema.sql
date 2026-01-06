@@ -19,12 +19,13 @@ CREATE TABLE tables (
     name TEXT NOT NULL,
     capacity INTEGER DEFAULT 4,
     status TEXT DEFAULT 'available',
-    shape TEXT DEFAULT 'square',
     pos_x DECIMAL(5,2) DEFAULT 0,
     pos_y DECIMAL(5,2) DEFAULT 0,
-    width DECIMAL(5,2) DEFAULT 12,
-    height DECIMAL(5,2) DEFAULT 12,
+    width DECIMAL(5,2) DEFAULT 10,
+    height DECIMAL(5,2) DEFAULT 10,
+    group_id UUID,
     current_order_id UUID,
+    number_of_people INTEGER,
     reserved_at TIMESTAMPTZ,
     reserved_by TEXT
 );
@@ -33,6 +34,7 @@ CREATE TABLE tables (
 CREATE TABLE orders (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     table_id TEXT,
+    table_name TEXT,
     order_type TEXT DEFAULT 'table',
     number_of_people INTEGER,
     items JSONB NOT NULL DEFAULT '[]',
@@ -138,25 +140,26 @@ INSERT INTO menu_items (name, description, price, category) VALUES
     ('Banana Fritta', 'Banana caramellata', 4.50, 'Dolci'),
     ('Lychee', 'Frutta esotica', 4.00, 'Dolci');
 
--- Sample tables for Xin Xing (~30 seats)
+-- Sample tables for Xin Xing (~30 seats) - all square tables
 -- Layout: entrance at bottom, kitchen at top
-INSERT INTO tables (name, capacity, shape, pos_x, pos_y, width, height) VALUES
+INSERT INTO tables (name, capacity, pos_x, pos_y, width, height) VALUES
     -- Left side (along wall)
-    ('T1', 4, 'square', 5, 10, 12, 12),
-    ('T2', 4, 'square', 5, 28, 12, 12),
-    ('T3', 4, 'square', 5, 46, 12, 12),
-    ('T4', 2, 'square', 5, 64, 10, 10),
+    ('T1', 4, 5, 8, 10, 10),
+    ('T2', 4, 5, 22, 10, 10),
+    ('T3', 4, 5, 36, 10, 10),
+    ('T4', 4, 5, 50, 10, 10),
+    ('T5', 2, 5, 64, 10, 10),
     
     -- Center
-    ('T5', 6, 'rectangle', 25, 15, 18, 12),
-    ('T6', 6, 'rectangle', 25, 35, 18, 12),
-    ('T7', 4, 'round', 28, 58, 12, 12),
+    ('T6', 4, 22, 15, 10, 10),
+    ('T7', 4, 22, 35, 10, 10),
+    ('T8', 4, 22, 55, 10, 10),
     
     -- Right side (along window)
-    ('T8', 2, 'square', 55, 10, 10, 10),
-    ('T9', 2, 'square', 55, 26, 10, 10),
-    ('T10', 4, 'square', 55, 44, 12, 12),
-    ('T11', 2, 'square', 55, 64, 10, 10);
+    ('T9', 4, 40, 8, 10, 10),
+    ('T10', 4, 40, 22, 10, 10),
+    ('T11', 4, 40, 36, 10, 10),
+    ('T12', 2, 40, 50, 10, 10);
 
 -- Sample inventory for Chinese restaurant
 INSERT INTO inventory_items (name, quantity, unit, min_quantity, supplier) VALUES

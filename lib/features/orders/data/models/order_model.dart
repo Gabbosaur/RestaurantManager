@@ -7,6 +7,7 @@ enum OrderType { table, takeaway }
 class OrderModel extends Equatable {
   final String id;
   final String? tableId;
+  final String? tableName; // Store table name for display
   final OrderType orderType;
   final int? numberOfPeople;
   final List<OrderItem> items;
@@ -19,6 +20,7 @@ class OrderModel extends Equatable {
   const OrderModel({
     required this.id,
     this.tableId,
+    this.tableName,
     required this.orderType,
     this.numberOfPeople,
     required this.items,
@@ -35,6 +37,7 @@ class OrderModel extends Equatable {
     return OrderModel(
       id: json['id'],
       tableId: json['table_id'],
+      tableName: json['table_name'],
       orderType: json['order_type'] == 'takeaway' 
           ? OrderType.takeaway 
           : OrderType.table,
@@ -57,6 +60,7 @@ class OrderModel extends Equatable {
   Map<String, dynamic> toJson() => {
         'id': id,
         'table_id': tableId,
+        'table_name': tableName,
         'order_type': orderType.name,
         'number_of_people': numberOfPeople,
         'items': items.map((e) => e.toJson()).toList(),
@@ -70,6 +74,7 @@ class OrderModel extends Equatable {
   OrderModel copyWith({
     String? id,
     String? tableId,
+    String? tableName,
     OrderType? orderType,
     int? numberOfPeople,
     List<OrderItem>? items,
@@ -82,6 +87,7 @@ class OrderModel extends Equatable {
     return OrderModel(
       id: id ?? this.id,
       tableId: tableId ?? this.tableId,
+      tableName: tableName ?? this.tableName,
       orderType: orderType ?? this.orderType,
       numberOfPeople: numberOfPeople ?? this.numberOfPeople,
       items: items ?? this.items,
@@ -95,7 +101,7 @@ class OrderModel extends Equatable {
 
   @override
   List<Object?> get props =>
-      [id, tableId, orderType, numberOfPeople, items, status, total, notes, createdAt, updatedAt];
+      [id, tableId, tableName, orderType, numberOfPeople, items, status, total, notes, createdAt, updatedAt];
 }
 
 class OrderItem extends Equatable {

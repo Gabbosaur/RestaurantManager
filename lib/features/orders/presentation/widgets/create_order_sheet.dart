@@ -5,6 +5,8 @@ import 'package:uuid/uuid.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../menu/presentation/providers/menu_provider.dart';
+import '../../../tables/data/models/table_model.dart';
+import '../../../tables/presentation/providers/tables_provider.dart';
 import '../../data/models/order_model.dart';
 import '../providers/orders_provider.dart';
 
@@ -16,16 +18,15 @@ class CreateOrderSheet extends ConsumerStatefulWidget {
 }
 
 class _CreateOrderSheetState extends ConsumerState<CreateOrderSheet> {
-  final _tableController = TextEditingController();
   final _peopleController = TextEditingController(text: '2');
   final _notesController = TextEditingController();
   final Map<String, int> _selectedItems = {};
   bool _isLoading = false;
   OrderType _orderType = OrderType.table;
+  TableModel? _selectedTable;
 
   @override
   void dispose() {
-    _tableController.dispose();
     _peopleController.dispose();
     _notesController.dispose();
     super.dispose();
@@ -49,7 +50,7 @@ class _CreateOrderSheetState extends ConsumerState<CreateOrderSheet> {
       return;
     }
 
-    if (_orderType == OrderType.table && _tableController.text.isEmpty) {
+    if (_orderType == OrderType.table && _selectedTable == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.enterTableNumber)),
       );
@@ -70,13 +71,17 @@ class _CreateOrderSheetState extends ConsumerState<CreateOrderSheet> {
         );
       }).toList();
 
+      final orderId = const Uuid().v4();
+      final numberOfPeople = _orderType == OrderType.table
+          ? int.tryParse(_peopleController.text) ?? 2
+          : null;
+
       final order = OrderModel(
-        id: const Uuid().v4(),
-        tableId: _orderType == OrderType.table ? _tableController.text : null,
+        id: orderId,
+        tableId: _orderType == OrderType.table ? _selectedTable!.id : null,
+        tableName: _orderType == OrderType.table ? _selectedTable!.name : null,
         orderType: _orderType,
-        numberOfPeople: _orderType == OrderType.table
-            ? int.tryParse(_peopleController.text)
-            : null,
+        numberOfPeople: numberOfPeople,
         items: orderItems,
         status: OrderStatus.pending,
         total: _total,
@@ -86,6 +91,16 @@ class _CreateOrderSheetState extends ConsumerState<CreateOrderSheet> {
       );
 
       await ref.read(ordersProvider.notifier).createOrder(order);
+
+      // Update table status to occupied with number of people
+      if (_orderType == OrderType.table && _selectedTable != null) {
+        await ref.read(tablesProvider.notifier).occupyTableWithOrder(
+              _selectedTable!.id,
+              orderId,
+              numberOfPeople ?? 2,
+            );
+      }
+
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) {
@@ -149,31 +164,21 @@ class _CreateOrderSheetState extends ConsumerState<CreateOrderSheet> {
               ),
               const SizedBox(height: 16),
               if (_orderType == OrderType.table) ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _tableController,
-                        decoration: InputDecoration(
-                          labelText: l10n.table,
-                          prefixIcon: const Icon(Icons.table_restaurant),
-                          hintText: 'T1, T2...',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    SizedBox(
-                      width: 100,
-                      child: TextField(
-                        controller: _peopleController,
-                        decoration: InputDecoration(
-                          labelText: l10n.people,
-                          prefixIcon: const Icon(Icons.people),
-                        ),
-                        keyboardType: TextInputType.number,
-                      ),
-                    ),
-                  ],
+                _TableSelector(
+                  selectedTable: _selectedTable,
+                  onTableSelected: (table) {
+                    setState(() => _selectedTable = table);
+                  },
+                  l10n: l10n,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _peopleController,
+                  decoration: InputDecoration(
+                    labelText: l10n.people,
+                    prefixIcon: const Icon(Icons.people),
+                  ),
+                  keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 16),
               ],
@@ -318,6 +323,128 @@ class _CreateOrderSheetState extends ConsumerState<CreateOrderSheet> {
               ),
             ],
           ),
+        );
+      },
+    );
+  }
+}
+
+
+class _TableSelector extends ConsumerWidget {
+  final TableModel? selectedTable;
+  final void Function(TableModel?) onTableSelected;
+  final AppLocalizations l10n;
+
+  const _TableSelector({
+    required this.selectedTable,
+    required this.onTableSelected,
+    required this.l10n,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tablesAsync = ref.watch(tablesProvider);
+
+    return tablesAsync.when(
+      loading: () => const LinearProgressIndicator(),
+      error: (e, _) => Text('Error: $e'),
+      data: (tables) {
+        // Filter available and reserved tables (not occupied or cleaning)
+        final availableTables = tables
+            .where((t) =>
+                t.status == TableStatus.available ||
+                t.status == TableStatus.reserved)
+            .toList();
+
+        if (availableTables.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.warning, color: Colors.orange),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    l10n.noTables,
+                    style: const TextStyle(color: Colors.orange),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: availableTables.map((table) {
+            final isSelected = selectedTable?.id == table.id;
+            final color = table.status == TableStatus.reserved
+                ? Colors.orange
+                : Colors.green;
+
+            return InkWell(
+              onTap: () => onTableSelected(isSelected ? null : table),
+              borderRadius: BorderRadius.circular(8),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? Theme.of(context).colorScheme.primaryContainer
+                      : color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isSelected
+                        ? Theme.of(context).colorScheme.primary
+                        : color,
+                    width: isSelected ? 2 : 1,
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.table_restaurant,
+                      color: isSelected
+                          ? Theme.of(context).colorScheme.primary
+                          : color,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      table.name,
+                      style: TextStyle(
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
+                      ),
+                    ),
+                    Text(
+                      '${table.capacity} ${l10n.seats}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    if (table.status == TableStatus.reserved &&
+                        table.reservedBy != null)
+                      Text(
+                        table.reservedBy!,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.orange.shade700,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
         );
       },
     );
