@@ -38,9 +38,39 @@ class AppLocalizations {
       };
 
   String get inventory => switch (language) {
-        AppLanguage.italian => 'Magazzino',
-        AppLanguage.english => 'Inventory',
-        AppLanguage.chinese => '库存',
+        AppLanguage.italian => 'Ingredienti',
+        AppLanguage.english => 'Ingredients',
+        AppLanguage.chinese => '食材',
+      };
+
+  String get ingredientsInfo => switch (language) {
+        AppLanguage.italian => 'Disattiva gli ingredienti esauriti. I piatti collegati non saranno ordinabili.',
+        AppLanguage.english => 'Disable unavailable ingredients. Related dishes won\'t be orderable.',
+        AppLanguage.chinese => '禁用缺货食材。相关菜品将无法点单。',
+      };
+
+  String get unavailableIngredients => switch (language) {
+        AppLanguage.italian => 'Non disponibili',
+        AppLanguage.english => 'Unavailable',
+        AppLanguage.chinese => '缺货',
+      };
+
+  String get availableIngredients => switch (language) {
+        AppLanguage.italian => 'Disponibili',
+        AppLanguage.english => 'Available',
+        AppLanguage.chinese => '有货',
+      };
+
+  String get resetAll => switch (language) {
+        AppLanguage.italian => 'Ripristina tutti',
+        AppLanguage.english => 'Reset all',
+        AppLanguage.chinese => '全部重置',
+      };
+
+  String get coverCharge => switch (language) {
+        AppLanguage.italian => 'Coperto',
+        AppLanguage.english => 'Cover',
+        AppLanguage.chinese => '餐位费',
       };
 
   // Orders
@@ -404,6 +434,30 @@ class AppLocalizations {
         AppLanguage.chinese => '语言',
       };
 
+  String get theme => switch (language) {
+        AppLanguage.italian => 'Tema',
+        AppLanguage.english => 'Theme',
+        AppLanguage.chinese => '主题',
+      };
+
+  String get lightTheme => switch (language) {
+        AppLanguage.italian => 'Chiaro',
+        AppLanguage.english => 'Light',
+        AppLanguage.chinese => '浅色',
+      };
+
+  String get darkTheme => switch (language) {
+        AppLanguage.italian => 'Scuro',
+        AppLanguage.english => 'Dark',
+        AppLanguage.chinese => '深色',
+      };
+
+  String get close => switch (language) {
+        AppLanguage.italian => 'Chiudi',
+        AppLanguage.english => 'Close',
+        AppLanguage.chinese => '关闭',
+      };
+
   // Auth
   String get email => switch (language) {
         AppLanguage.italian => 'Email',
@@ -604,5 +658,48 @@ class AppLocalizations {
         AppLanguage.italian => 'Seleziona un tavolo',
         AppLanguage.english => 'Select a table',
         AppLanguage.chinese => '选择餐桌',
+      };
+
+  String orderedToday(int count) => switch (language) {
+        AppLanguage.italian => 'Ordinato $count volte oggi',
+        AppLanguage.english => 'Ordered $count times today',
+        AppLanguage.chinese => '今日已点 $count 次',
+      };
+
+  String get highUsageWarning => switch (language) {
+        AppLanguage.italian => 'Molto richiesto!',
+        AppLanguage.english => 'High demand!',
+        AppLanguage.chinese => '需求量大！',
+      };
+
+  // Conflict handling
+  String get ingredientNowUnavailable => switch (language) {
+        AppLanguage.italian => 'Non più disponibile',
+        AppLanguage.english => 'No longer available',
+        AppLanguage.chinese => '已无货',
+      };
+
+  String get someItemsUnavailable => switch (language) {
+        AppLanguage.italian => 'Alcuni piatti non sono più disponibili',
+        AppLanguage.english => 'Some items are no longer available',
+        AppLanguage.chinese => '部分菜品已无货',
+      };
+
+  String get removeUnavailable => switch (language) {
+        AppLanguage.italian => 'Rimuovi',
+        AppLanguage.english => 'Remove',
+        AppLanguage.chinese => '移除',
+      };
+
+  String get proceedAnyway => switch (language) {
+        AppLanguage.italian => 'Procedi comunque',
+        AppLanguage.english => 'Proceed anyway',
+        AppLanguage.chinese => '继续下单',
+      };
+
+  String unavailableItemsWarning(List<String> items) => switch (language) {
+        AppLanguage.italian => 'I seguenti piatti non sono più disponibili:\n${items.join('\n')}\n\nVuoi rimuoverli dall\'ordine?',
+        AppLanguage.english => 'The following items are no longer available:\n${items.join('\n')}\n\nDo you want to remove them?',
+        AppLanguage.chinese => '以下菜品已无货：\n${items.join('\n')}\n\n是否从订单中移除？',
       };
 }

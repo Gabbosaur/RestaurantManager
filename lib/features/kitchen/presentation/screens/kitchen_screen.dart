@@ -15,6 +15,8 @@ class KitchenScreen extends ConsumerWidget {
     final ordersAsync = ref.watch(ordersProvider);
     final language = ref.watch(languageProvider);
     final l10n = AppLocalizations(language);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 800;
 
     return Scaffold(
       appBar: AppBar(
@@ -48,6 +50,17 @@ class KitchenScreen extends ConsumerWidget {
               orders.where((o) => o.status == OrderStatus.preparing).toList();
           final readyOrders =
               orders.where((o) => o.status == OrderStatus.ready).toList();
+
+          // Use tabs on small screens, columns on large screens
+          if (isSmallScreen) {
+            return _KitchenTabs(
+              newOrders: newOrders,
+              preparingOrders: preparingOrders,
+              readyOrders: readyOrders,
+              l10n: l10n,
+              ref: ref,
+            );
+          }
 
           return Row(
             children: [
@@ -103,6 +116,144 @@ class KitchenScreen extends ConsumerWidget {
   }
 }
 
+/// Tabbed view for small screens (mobile)
+class _KitchenTabs extends StatelessWidget {
+  final List<OrderModel> newOrders;
+  final List<OrderModel> preparingOrders;
+  final List<OrderModel> readyOrders;
+  final AppLocalizations l10n;
+  final WidgetRef ref;
+
+  const _KitchenTabs({
+    required this.newOrders,
+    required this.preparingOrders,
+    required this.readyOrders,
+    required this.l10n,
+    required this.ref,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 3,
+      child: Column(
+        children: [
+          TabBar(
+            tabs: [
+              Tab(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(l10n.newOrders),
+                    if (newOrders.isNotEmpty) ...[
+                      const SizedBox(width: 4),
+                      _Badge(count: newOrders.length, color: Colors.orange),
+                    ],
+                  ],
+                ),
+              ),
+              Tab(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(l10n.inPreparation),
+                    if (preparingOrders.isNotEmpty) ...[
+                      const SizedBox(width: 4),
+                      _Badge(count: preparingOrders.length, color: Colors.blue),
+                    ],
+                  ],
+                ),
+              ),
+              Tab(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(l10n.readyToServe),
+                    if (readyOrders.isNotEmpty) ...[
+                      const SizedBox(width: 4),
+                      _Badge(count: readyOrders.length, color: Colors.green),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+            labelColor: Theme.of(context).colorScheme.primary,
+            indicatorColor: Theme.of(context).colorScheme.primary,
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                _OrderColumn(
+                  title: l10n.newOrders,
+                  orders: newOrders,
+                  color: Colors.orange,
+                  emptyMessage: l10n.noNewOrders,
+                  actionLabel: l10n.startPreparing,
+                  onAction: (order) => ref
+                      .read(ordersProvider.notifier)
+                      .updateStatus(order.id, OrderStatus.preparing),
+                  l10n: l10n,
+                  showHeader: false,
+                ),
+                _OrderColumn(
+                  title: l10n.inPreparation,
+                  orders: preparingOrders,
+                  color: Colors.blue,
+                  emptyMessage: l10n.noPreparing,
+                  actionLabel: l10n.markReady,
+                  onAction: (order) => ref
+                      .read(ordersProvider.notifier)
+                      .updateStatus(order.id, OrderStatus.ready),
+                  l10n: l10n,
+                  showHeader: false,
+                ),
+                _OrderColumn(
+                  title: l10n.readyToServe,
+                  orders: readyOrders,
+                  color: Colors.green,
+                  emptyMessage: l10n.noReady,
+                  actionLabel: l10n.served,
+                  onAction: (order) => ref
+                      .read(ordersProvider.notifier)
+                      .updateStatus(order.id, OrderStatus.served),
+                  l10n: l10n,
+                  showHeader: false,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Badge extends StatelessWidget {
+  final int count;
+  final Color color;
+
+  const _Badge({required this.count, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        '$count',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+}
+
 class _OrderColumn extends StatelessWidget {
   final String title;
   final List<OrderModel> orders;
@@ -111,6 +262,7 @@ class _OrderColumn extends StatelessWidget {
   final String actionLabel;
   final void Function(OrderModel) onAction;
   final AppLocalizations l10n;
+  final bool showHeader;
 
   const _OrderColumn({
     required this.title,
@@ -120,6 +272,7 @@ class _OrderColumn extends StatelessWidget {
     required this.actionLabel,
     required this.onAction,
     required this.l10n,
+    this.showHeader = true,
   });
 
   @override
@@ -128,40 +281,42 @@ class _OrderColumn extends StatelessWidget {
       color: color.withOpacity(0.05),
       child: Column(
         children: [
-          // Header
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            color: color.withOpacity(0.2),
-            child: Column(
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: color.shade700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${orders.length}',
-                    style: const TextStyle(
-                      fontSize: 18,
+          // Header (optional)
+          if (showHeader)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              color: color.withOpacity(0.2),
+              child: Column(
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: color.shade700,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${orders.length}',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
           // Orders list
           Expanded(
             child: orders.isEmpty
@@ -284,7 +439,7 @@ class _KitchenOrderCard extends StatelessWidget {
               ],
             ),
             const Divider(height: 16),
-            // Items list - large and clear
+            // Items list - large and clear (Chinese name for kitchen)
             ...order.items.map((item) => Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Row(
@@ -313,13 +468,33 @@ class _KitchenOrderCard extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              item.name,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
+                            // Nome cinese (grande) - se disponibile
+                            if (item.nameZh != null) ...[
+                              Text(
+                                item.nameZh!,
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
+                              // Nome italiano (piccolo sotto)
+                              Text(
+                                item.name,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ] else ...[
+                              // Solo nome italiano se non c'è cinese
+                              Text(
+                                item.name,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                             if (item.notes != null && item.notes!.isNotEmpty)
                               Text(
                                 '⚠️ ${item.notes}',

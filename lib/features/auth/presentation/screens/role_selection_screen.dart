@@ -13,6 +13,8 @@ class RoleSelectionScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final language = ref.watch(languageProvider);
     final l10n = AppLocalizations(language);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
 
     return Scaffold(
       appBar: AppBar(
@@ -33,38 +35,61 @@ class RoleSelectionScreen extends ConsumerWidget {
         ],
       ),
       body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
                 l10n.selectRole,
                 style: Theme.of(context).textTheme.headlineMedium,
+                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 48),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Dining Room (Sala) button
-                  _RoleCard(
-                    icon: Icons.storefront,
-                    title: l10n.diningRoom,
-                    description: l10n.diningRoomDesc,
-                    color: Colors.blue,
-                    onTap: () => context.go('/'),
-                  ),
-                  const SizedBox(width: 32),
-                  // Kitchen button
-                  _RoleCard(
-                    icon: Icons.restaurant,
-                    title: l10n.kitchen,
-                    description: l10n.kitchenDesc,
-                    color: Colors.orange,
-                    onTap: () => context.go('/kitchen'),
-                  ),
-                ],
-              ),
+              const SizedBox(height: 32),
+              // Responsive layout: Column on mobile, Row on tablet
+              if (isSmallScreen)
+                Column(
+                  children: [
+                    _RoleCard(
+                      icon: Icons.storefront,
+                      title: l10n.diningRoom,
+                      description: l10n.diningRoomDesc,
+                      color: Colors.blue,
+                      onTap: () => context.go('/'),
+                      isCompact: true,
+                    ),
+                    const SizedBox(height: 16),
+                    _RoleCard(
+                      icon: Icons.restaurant,
+                      title: l10n.kitchen,
+                      description: l10n.kitchenDesc,
+                      color: Colors.orange,
+                      onTap: () => context.go('/kitchen'),
+                      isCompact: true,
+                    ),
+                  ],
+                )
+              else
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _RoleCard(
+                      icon: Icons.storefront,
+                      title: l10n.diningRoom,
+                      description: l10n.diningRoomDesc,
+                      color: Colors.blue,
+                      onTap: () => context.go('/'),
+                    ),
+                    const SizedBox(width: 32),
+                    _RoleCard(
+                      icon: Icons.restaurant,
+                      title: l10n.kitchen,
+                      description: l10n.kitchenDesc,
+                      color: Colors.orange,
+                      onTap: () => context.go('/kitchen'),
+                    ),
+                  ],
+                ),
             ],
           ),
         ),
@@ -108,6 +133,7 @@ class _RoleCard extends StatelessWidget {
   final String description;
   final Color color;
   final VoidCallback onTap;
+  final bool isCompact;
 
   const _RoleCard({
     required this.icon,
@@ -115,10 +141,60 @@ class _RoleCard extends StatelessWidget {
     required this.description,
     required this.color,
     required this.onTap,
+    this.isCompact = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (isCompact) {
+      // Horizontal layout for mobile
+      return Card(
+        elevation: 4,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, size: 40, color: color),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        description,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.outline,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: color),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Vertical layout for tablet/desktop
     return Card(
       elevation: 4,
       child: InkWell(

@@ -107,6 +107,7 @@ class OrderModel extends Equatable {
 class OrderItem extends Equatable {
   final String menuItemId;
   final String name;
+  final String? nameZh; // nome in cinese per la cucina
   final int quantity;
   final double price;
   final String? notes;
@@ -114,15 +115,20 @@ class OrderItem extends Equatable {
   const OrderItem({
     required this.menuItemId,
     required this.name,
+    this.nameZh,
     required this.quantity,
     required this.price,
     this.notes,
   });
 
+  /// Ritorna il nome in cinese se disponibile, altrimenti il nome italiano
+  String get displayNameZh => nameZh ?? name;
+
   factory OrderItem.fromJson(Map<String, dynamic> json) {
     return OrderItem(
       menuItemId: json['menu_item_id'],
       name: json['name'],
+      nameZh: json['name_zh'],
       quantity: json['quantity'],
       price: (json['price'] ?? 0).toDouble(),
       notes: json['notes'],
@@ -132,11 +138,12 @@ class OrderItem extends Equatable {
   Map<String, dynamic> toJson() => {
         'menu_item_id': menuItemId,
         'name': name,
+        'name_zh': nameZh,
         'quantity': quantity,
         'price': price,
         'notes': notes,
       };
 
   @override
-  List<Object?> get props => [menuItemId, name, quantity, price, notes];
+  List<Object?> get props => [menuItemId, name, nameZh, quantity, price, notes];
 }

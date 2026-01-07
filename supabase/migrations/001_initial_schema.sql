@@ -5,25 +5,30 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE menu_items (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL,
+    name_zh TEXT,  -- nome in cinese per la cucina
     description TEXT,
     price DECIMAL(10,2) NOT NULL DEFAULT 0,
     category TEXT NOT NULL DEFAULT 'Altro',
     is_available BOOLEAN DEFAULT true,
+    ingredient_key TEXT,
     image_url TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Tables table (with position for floor plan)
+-- Ingredienti chiave (per gestione disponibilità)
+CREATE TABLE ingredients (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    is_available BOOLEAN DEFAULT true,
+    notes TEXT
+);
+
+-- Tables table
 CREATE TABLE tables (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL,
     capacity INTEGER DEFAULT 4,
     status TEXT DEFAULT 'available',
-    pos_x DECIMAL(5,2) DEFAULT 0,
-    pos_y DECIMAL(5,2) DEFAULT 0,
-    width DECIMAL(5,2) DEFAULT 10,
-    height DECIMAL(5,2) DEFAULT 10,
-    group_id UUID,
     current_order_id UUID,
     number_of_people INTEGER,
     reserved_at TIMESTAMPTZ,
@@ -57,125 +62,191 @@ CREATE TABLE inventory_items (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+
 -- Enable Row Level Security
 ALTER TABLE menu_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ingredients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tables ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory_items ENABLE ROW LEVEL SECURITY;
 
--- Policies (allow authenticated users full access)
-CREATE POLICY "Allow authenticated access" ON menu_items
-    FOR ALL TO authenticated USING (true) WITH CHECK (true);
+-- Policies
+CREATE POLICY "Allow authenticated access" ON menu_items FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow authenticated access" ON ingredients FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow authenticated access" ON tables FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow authenticated access" ON orders FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow authenticated access" ON inventory_items FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
-CREATE POLICY "Allow authenticated access" ON tables
-    FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
-CREATE POLICY "Allow authenticated access" ON orders
-    FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
-CREATE POLICY "Allow authenticated access" ON inventory_items
-    FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
--- Enable realtime for orders and inventory
+-- Enable realtime
 ALTER PUBLICATION supabase_realtime ADD TABLE orders;
 ALTER PUBLICATION supabase_realtime ADD TABLE inventory_items;
 
--- Sample menu for Xin Xing (Chinese restaurant)
-INSERT INTO menu_items (name, description, price, category) VALUES
-    -- Antipasti
-    ('Involtini Primavera (4pz)', 'Croccanti involtini vegetariani', 5.50, 'Antipasti'),
-    ('Ravioli al Vapore (6pz)', 'Ravioli di carne al vapore', 6.50, 'Antipasti'),
-    ('Ravioli alla Piastra (6pz)', 'Ravioli di carne alla piastra', 6.50, 'Antipasti'),
-    ('Wonton Fritti (6pz)', 'Ravioli fritti con carne', 5.50, 'Antipasti'),
-    ('Edamame', 'Fagioli di soia con sale', 4.50, 'Antipasti'),
-    
-    -- Zuppe
-    ('Zuppa di Wonton', 'Brodo con ravioli di carne', 5.00, 'Zuppe'),
-    ('Zuppa Agro-Piccante', 'Zuppa tradizionale piccante', 5.50, 'Zuppe'),
-    ('Zuppa di Mais e Pollo', 'Crema di mais con pollo', 5.00, 'Zuppe'),
-    
-    -- Riso
-    ('Riso alla Cantonese', 'Riso saltato con uova, piselli e prosciutto', 7.00, 'Riso'),
-    ('Riso con Gamberi', 'Riso saltato con gamberi e verdure', 8.50, 'Riso'),
-    ('Riso con Pollo', 'Riso saltato con pollo e verdure', 7.50, 'Riso'),
-    
-    -- Noodles
-    ('Spaghetti di Riso con Manzo', 'Noodles saltati con manzo e verdure', 9.00, 'Noodles'),
-    ('Spaghetti di Soia con Gamberi', 'Noodles saltati con gamberi', 9.50, 'Noodles'),
-    ('Lo Mein con Pollo', 'Noodles morbidi con pollo', 8.50, 'Noodles'),
-    
-    -- Pollo
-    ('Pollo alle Mandorle', 'Pollo croccante con mandorle', 9.50, 'Pollo'),
-    ('Pollo Kung Pao', 'Pollo piccante con arachidi', 9.50, 'Pollo'),
-    ('Pollo in Salsa Agrodolce', 'Pollo fritto con salsa agrodolce', 9.00, 'Pollo'),
-    ('Pollo con Bambù e Funghi', 'Pollo saltato con verdure', 9.00, 'Pollo'),
-    
-    -- Manzo
-    ('Manzo con Peperoni', 'Manzo saltato con peperoni', 10.50, 'Manzo'),
-    ('Manzo in Salsa di Ostriche', 'Manzo con salsa di ostriche', 10.50, 'Manzo'),
-    ('Manzo Szechuan', 'Manzo piccante stile Sichuan', 11.00, 'Manzo'),
-    
-    -- Gamberi
-    ('Gamberi con Verdure', 'Gamberi saltati con verdure miste', 11.00, 'Gamberi'),
-    ('Gamberi al Curry', 'Gamberi in salsa curry', 11.50, 'Gamberi'),
-    ('Gamberi Fritti', 'Gamberi in pastella croccante', 10.50, 'Gamberi'),
-    
-    -- Anatra
-    ('Anatra alla Pechinese', 'Mezza anatra con pancake e salsa', 18.00, 'Anatra'),
-    ('Anatra con Bambù', 'Anatra saltata con bambù', 12.00, 'Anatra'),
-    
-    -- Verdure
-    ('Verdure Miste Saltate', 'Verdure di stagione saltate', 7.00, 'Verdure'),
-    ('Tofu con Verdure', 'Tofu saltato con verdure', 7.50, 'Verdure'),
-    ('Melanzane in Salsa Piccante', 'Melanzane stile Sichuan', 8.00, 'Verdure'),
-    
-    -- Bevande
-    ('Tè Cinese', 'Tè verde o gelsomino', 2.50, 'Bevande'),
-    ('Birra Tsingtao', 'Birra cinese 33cl', 4.00, 'Bevande'),
-    ('Coca Cola / Fanta / Sprite', 'Lattina 33cl', 2.50, 'Bevande'),
-    ('Acqua', 'Naturale o frizzante 50cl', 2.00, 'Bevande'),
-    
-    -- Dolci
-    ('Gelato Fritto', 'Gelato in pastella croccante', 5.00, 'Dolci'),
-    ('Banana Fritta', 'Banana caramellata', 4.50, 'Dolci'),
-    ('Lychee', 'Frutta esotica', 4.00, 'Dolci');
+-- Restaurant settings
+CREATE TABLE restaurant_settings (
+    id INTEGER PRIMARY KEY DEFAULT 1,
+    cover_charge DECIMAL(10,2) DEFAULT 1.50
+);
+INSERT INTO restaurant_settings (id, cover_charge) VALUES (1, 1.50);
+ALTER TABLE restaurant_settings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow authenticated access" ON restaurant_settings FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
--- Sample tables for Xin Xing (~30 seats) - all square tables
--- Layout: entrance at bottom, kitchen at top
-INSERT INTO tables (name, capacity, pos_x, pos_y, width, height) VALUES
-    -- Left side (along wall)
-    ('T1', 4, 5, 8, 10, 10),
-    ('T2', 4, 5, 22, 10, 10),
-    ('T3', 4, 5, 36, 10, 10),
-    ('T4', 4, 5, 50, 10, 10),
-    ('T5', 2, 5, 64, 10, 10),
-    
-    -- Center
-    ('T6', 4, 22, 15, 10, 10),
-    ('T7', 4, 22, 35, 10, 10),
-    ('T8', 4, 22, 55, 10, 10),
-    
-    -- Right side (along window)
-    ('T9', 4, 40, 8, 10, 10),
-    ('T10', 4, 40, 22, 10, 10),
-    ('T11', 4, 40, 36, 10, 10),
-    ('T12', 2, 40, 50, 10, 10);
+-- Ingredienti chiave
+INSERT INTO ingredients (id, name, is_available) VALUES
+    ('riso', 'Riso', true),
+    ('spaghetti_riso', 'Spaghetti di Riso', true),
+    ('spaghetti_soia', 'Spaghetti di Soia', true),
+    ('udon', 'Udon', true),
+    ('ravioli', 'Ravioli', true),
+    ('gnocchi_riso', 'Gnocchi di Riso', true),
+    ('anatra', 'Anatra', true),
+    ('pollo', 'Pollo', true),
+    ('vitello', 'Vitello', true),
+    ('maiale', 'Maiale', true),
+    ('costine', 'Costine di Maiale', true),
+    ('gamberi', 'Gamberi', true),
+    ('gamberoni', 'Gamberoni', true),
+    ('calamari', 'Calamari', true),
+    ('pesce', 'Pesce', true),
+    ('frutti_mare', 'Frutti di Mare', true),
+    ('tofu', 'Tofu', true),
+    ('involtini_carne', 'Involtini di Carne', true),
+    ('involtini_primavera', 'Involtini Primavera', true),
+    ('wanton', 'Wanton', true),
+    ('granchio', 'Granchio', true);
 
--- Sample inventory for Chinese restaurant
-INSERT INTO inventory_items (name, quantity, unit, min_quantity, supplier) VALUES
-    ('Riso Jasmine', 50, 'kg', 15, 'Asia Market'),
-    ('Salsa di Soia', 10, 'litri', 3, 'Asia Market'),
-    ('Olio di Sesamo', 5, 'litri', 2, 'Asia Market'),
-    ('Noodles di Riso', 20, 'kg', 5, 'Asia Market'),
-    ('Noodles di Soia', 15, 'kg', 5, 'Asia Market'),
-    ('Gamberi Surgelati', 8, 'kg', 3, 'Ittica Ligure'),
-    ('Petto di Pollo', 12, 'kg', 4, 'Macelleria Rossi'),
-    ('Manzo', 8, 'kg', 3, 'Macelleria Rossi'),
-    ('Anatra', 6, 'pz', 2, 'Macelleria Rossi'),
-    ('Verdure Miste', 15, 'kg', 5, 'Ortofrutta Imperia'),
-    ('Germogli di Soia', 5, 'kg', 2, 'Asia Market'),
-    ('Bambù in Scatola', 20, 'pz', 8, 'Asia Market'),
-    ('Funghi Shiitake', 3, 'kg', 1, 'Asia Market'),
-    ('Tofu', 10, 'pz', 4, 'Asia Market'),
-    ('Birra Tsingtao', 48, 'pz', 24, 'Bevande Liguria'),
-    ('Tè Verde', 2, 'kg', 0.5, 'Asia Market');
+
+-- Menu completo Xin Xing 新星 (con nomi cinesi)
+INSERT INTO menu_items (name, name_zh, price, category, ingredient_key) VALUES
+    -- ANTIPASTI
+    ('01. Antipasto Misto', '什锦拼盘', 5.00, 'Antipasti', NULL),
+    ('02. Involtino di Carne', '肉卷', 2.50, 'Antipasti', 'involtini_carne'),
+    ('03. Involtino di Primavera', '春卷', 1.00, 'Antipasti', 'involtini_primavera'),
+    ('04. Toast di Gamberi', '虾多士', 2.50, 'Antipasti', 'gamberi'),
+    ('05. Nuvolette di Gamberi', '虾片', 1.50, 'Antipasti', NULL),
+    ('06. Insalata Agropiccante', '酸辣沙拉', 4.00, 'Antipasti', NULL),
+    ('07. Insalata di Mare', '海鲜沙拉', 6.50, 'Antipasti', 'frutti_mare'),
+    ('08. Insalata di Alghe', '海带沙拉', 5.00, 'Antipasti', NULL),
+    ('09. Focaccia Farcita Cinese', '中式馅饼', 2.00, 'Antipasti', NULL),
+    -- ZUPPE
+    ('10. Zuppa di Mais e Pollo', '玉米鸡汤', 3.00, 'Zuppe', 'pollo'),
+    ('11. Zuppa di Wanton', '馄饨汤', 3.00, 'Zuppe', 'wanton'),
+    ('12. Zuppa Pechinese Agropiccante', '酸辣汤', 3.00, 'Zuppe', NULL),
+    ('13. Zuppa di Granchio con Asparagi', '蟹肉芦笋汤', 3.00, 'Zuppe', 'granchio'),
+    ('14. Zuppa ai Frutti di Mare', '海鲜汤', 3.50, 'Zuppe', 'frutti_mare'),
+    -- PRIMI - RISO
+    ('21. Riso "Xin Xing"', '新星炒饭', 6.00, 'Primi - Riso', 'riso'),
+    ('22. Riso Bianco con Uova e Pomodori', '番茄蛋炒饭', 5.00, 'Primi - Riso', 'riso'),
+    ('23. Riso Bianco, Pancetta e Melanzane', '培根茄子饭', 7.00, 'Primi - Riso', 'riso'),
+    ('24. Riso alla Cantonese', '扬州炒饭', 3.50, 'Primi - Riso', 'riso'),
+    ('25. Riso Bianco con Curry e Verdure', '咖喱蔬菜饭', 7.00, 'Primi - Riso', 'riso'),
+    ('26. Riso Bianco con Curry e Pollo', '咖喱鸡饭', 10.00, 'Primi - Riso', 'riso'),
+    ('27. Riso Piccante con Gamberi e Cipolle', '辣虾洋葱饭', 4.50, 'Primi - Riso', 'riso'),
+    ('28. Riso all''Ananas', '菠萝炒饭', 5.00, 'Primi - Riso', 'riso'),
+    ('29. Riso all''Ananas con Gamberi', '菠萝虾仁饭', 7.50, 'Primi - Riso', 'riso'),
+    ('30. Riso con Verdure', '蔬菜炒饭', 4.00, 'Primi - Riso', 'riso'),
+    ('31. Riso con Gamberi', '虾仁炒饭', 4.50, 'Primi - Riso', 'riso'),
+    -- PRIMI - SPAGHETTI
+    ('32. Spaghetti di Riso ai Frutti di Mare', '海鲜炒米粉', 6.50, 'Primi - Spaghetti', 'spaghetti_riso'),
+    ('33. Spaghetti di Riso Agropiccante', '酸辣米粉', 6.00, 'Primi - Spaghetti', 'spaghetti_riso'),
+    ('34. Spaghetti di Riso con Verdure', '蔬菜炒米粉', 4.00, 'Primi - Spaghetti', 'spaghetti_riso'),
+    ('35. Spaghetti di Riso, Curry e Verdure', '咖喱蔬菜米粉', 8.00, 'Primi - Spaghetti', 'spaghetti_riso'),
+    ('36. Spaghetti di Soia con Maiale', '猪肉炒面', 4.50, 'Primi - Spaghetti', 'spaghetti_soia'),
+    ('37. Spaghetti di Soia alla Piastra', '铁板炒面', 7.00, 'Primi - Spaghetti', 'spaghetti_soia'),
+    ('38. Spaghetti di Soia al Curry', '咖喱炒面', 5.00, 'Primi - Spaghetti', 'spaghetti_soia'),
+    ('39. Spaghetti Udon in Salsa di Soia', '酱油乌冬面', 5.00, 'Primi - Spaghetti', 'udon'),
+    ('40. Ramen con Costine', '排骨拉面', 7.50, 'Primi - Spaghetti', 'costine'),
+    -- PRIMI - RAVIOLI
+    ('41. Ravioli di Carne Brasati', '红烧饺子', 5.00, 'Primi - Ravioli', 'ravioli'),
+    ('42. Ravioli al Vapore', '蒸饺', 4.00, 'Primi - Ravioli', 'ravioli'),
+    ('43. Gnocchi di Riso', '年糕', 4.00, 'Primi - Ravioli', 'gnocchi_riso'),
+    ('44. Gnocchi di Riso con Carne o Gamberi', '肉/虾年糕', 5.00, 'Primi - Ravioli', 'gnocchi_riso'),
+    ('45. Spaghetti di Grano con Verdure', '蔬菜炒面', 4.50, 'Primi - Ravioli', NULL),
+    -- SECONDI - ANATRA
+    ('46. Anatra alla Piastra', '铁板鸭', 8.00, 'Secondi - Anatra', 'anatra'),
+    ('47. Anatra al Limone', '柠檬鸭', 7.00, 'Secondi - Anatra', 'anatra'),
+    ('48. Anatra Arrosto', '烤鸭', 6.00, 'Secondi - Anatra', 'anatra'),
+    ('49. Anatra con Funghi e Bambù', '香菇笋鸭', 7.00, 'Secondi - Anatra', 'anatra'),
+    -- SECONDI - POLLO
+    ('50. Pollo alle Mandorle', '杏仁鸡', 5.50, 'Secondi - Pollo', 'pollo'),
+    ('51. Pollo al Curry', '咖喱鸡', 5.00, 'Secondi - Pollo', 'pollo'),
+    ('52. Pollo al Limone', '柠檬鸡', 6.00, 'Secondi - Pollo', 'pollo'),
+    ('53. Pollo Kon-Pao Piccante', '宫保鸡丁', 5.50, 'Secondi - Pollo', 'pollo'),
+    ('54. Pollo con Asparagi al Latte', '奶油芦笋鸡', 6.50, 'Secondi - Pollo', 'pollo'),
+    ('55. Pollo in Salsa di Soia', '酱油鸡', 5.00, 'Secondi - Pollo', 'pollo'),
+    ('56. Spiedini di Pollo', '鸡肉串', 5.00, 'Secondi - Pollo', 'pollo'),
+    -- SECONDI - VITELLO
+    ('57. Vitello con Funghi e Bambù', '香菇笋牛肉', 7.00, 'Secondi - Vitello', 'vitello'),
+    ('58. Vitello alla Piastra', '铁板牛肉', 7.00, 'Secondi - Vitello', 'vitello'),
+    ('59. Vitello con Cipolle', '洋葱牛肉', 7.00, 'Secondi - Vitello', 'vitello'),
+    -- SECONDI - MAIALE
+    ('60. Maiale con Verdure', '蔬菜猪肉', 6.00, 'Secondi - Maiale', 'maiale'),
+    ('61. Maiale con Funghi Neri', '木耳猪肉', 6.00, 'Secondi - Maiale', 'maiale'),
+    ('62. Maiale in Salsa Piccante', '辣猪肉', 5.00, 'Secondi - Maiale', 'maiale'),
+    ('63. Maiale in Agrodolce', '糖醋猪肉', 6.00, 'Secondi - Maiale', 'maiale'),
+    ('64. Costine di Maiale Fritte', '炸排骨', 6.50, 'Secondi - Maiale', 'costine'),
+    -- SECONDI - GAMBERI
+    ('65. Gamberi Fritti all''Imperiale', '皇家炸虾', 7.00, 'Secondi - Gamberi', 'gamberi'),
+    ('66. Gamberi alla Piastra', '铁板虾', 9.00, 'Secondi - Gamberi', 'gamberi'),
+    ('67. Gamberi al Limone', '柠檬虾', 6.50, 'Secondi - Gamberi', 'gamberi'),
+    ('68. Gamberi in Agrodolce', '糖醋虾', 6.00, 'Secondi - Gamberi', 'gamberi'),
+    ('69. Gamberi in Salsa Piccante', '辣虾', 7.00, 'Secondi - Gamberi', 'gamberi'),
+    ('70. Gamberoni allo Spiedo', '烤大虾', 10.00, 'Secondi - Gamberi', 'gamberoni'),
+    ('71. Gamberoni alla Piastra', '铁板大虾', 12.00, 'Secondi - Gamberi', 'gamberoni'),
+    -- SECONDI - PESCE
+    ('72. Calamari con Gamberi e Funghi', '鱿鱼虾仁香菇', 7.00, 'Secondi - Pesce', 'calamari'),
+    ('73. Calamari Fritti', '炸鱿鱼', 7.00, 'Secondi - Pesce', 'calamari'),
+    ('74. Filetto di Pesce con Funghi e Bambù', '香菇笋鱼片', 7.00, 'Secondi - Pesce', 'pesce'),
+    ('75. Filetto di Pesce Fritto', '炸鱼片', 7.00, 'Secondi - Pesce', 'pesce'),
+    ('76. Pesce Intero al Vapore', '清蒸全鱼', 11.00, 'Secondi - Pesce', 'pesce'),
+    ('77. Pesce Intero Stufato in Salsa di Soia', '红烧全鱼', 11.00, 'Secondi - Pesce', 'pesce'),
+    ('78. Frutti di Mare alla Piastra', '铁板海鲜', 12.00, 'Secondi - Pesce', 'frutti_mare'),
+    -- CONTORNI
+    ('81. Verdura Mista Saltata', '炒杂菜', 3.00, 'Contorni', NULL),
+    ('82. Funghi e Bambù Saltati', '炒香菇笋', 4.00, 'Contorni', NULL),
+    ('83. Riso Bianco al Vapore', '白饭', 2.00, 'Contorni', 'riso'),
+    ('84. Pane Cinese al Vapore o Fritto', '馒头', 1.00, 'Contorni', NULL),
+    ('85. Patatine Fritte', '薯条', 3.00, 'Contorni', NULL),
+    ('86. Insalata Mista', '沙拉', 3.00, 'Contorni', NULL),
+    ('87. Germogli di Soia', '炒豆芽', 4.00, 'Contorni', NULL),
+    ('88. Tofu in Salsa Piccante', '麻辣豆腐', 5.00, 'Contorni', 'tofu'),
+    ('89. Tofu in Salsa d''Ostrica', '蚝油豆腐', 5.00, 'Contorni', 'tofu'),
+    ('90. Tofu con Verdure', '蔬菜豆腐', 5.00, 'Contorni', 'tofu'),
+    -- DOLCI
+    ('91. Frutta Cinese', '中式水果', 3.00, 'Dolci', NULL),
+    ('92. Frutta Fresca Caramellata', '拔丝水果', 4.00, 'Dolci', NULL),
+    ('93. Frutta Fresca Fritta', '炸水果', 4.00, 'Dolci', NULL),
+    ('94. Gelato Fritto', '炸冰淇淋', 3.00, 'Dolci', NULL),
+    ('95. Gelato Misto', '什锦冰淇淋', 4.00, 'Dolci', NULL),
+    ('96. Tartufo Bianco o Nero', '松露冰淇淋', 4.00, 'Dolci', NULL),
+    ('97. Crème Caramel', '焦糖布丁', 2.50, 'Dolci', NULL),
+    ('98. Dolce "Xin Xing"', '新星甜点', 4.00, 'Dolci', NULL),
+    -- BEVANDE - VINI
+    ('Vino Sfuso 0,50L', '散装酒', 5.00, 'Bevande - Vini', NULL),
+    ('Vermentino', '维蒙蒂诺', 16.00, 'Bevande - Vini', NULL),
+    ('Pigato', '皮加托', 25.00, 'Bevande - Vini', NULL),
+    ('Pinot Grigio', '灰皮诺', 10.00, 'Bevande - Vini', NULL),
+    ('Vino Bianco', '白葡萄酒', 9.00, 'Bevande - Vini', NULL),
+    ('Vino Rosato', '桃红酒', 8.00, 'Bevande - Vini', NULL),
+    ('Vino Rosso', '红葡萄酒', 10.00, 'Bevande - Vini', NULL),
+    ('Chardonnay Frizzante', '霞多丽起泡', 10.00, 'Bevande - Vini', NULL),
+    -- BEVANDE - BIRRE
+    ('Birra Cinese 64cl', '青岛啤酒', 5.00, 'Bevande - Birre', NULL),
+    ('Birra Heineken 66cl', '喜力大', 6.00, 'Bevande - Birre', NULL),
+    ('Birra Heineken 33cl', '喜力小', 4.00, 'Bevande - Birre', NULL),
+    -- BEVANDE - ANALCOLICHE
+    ('Acqua Naturale o Frizzante 1L', '矿泉水大', 3.50, 'Bevande - Analcoliche', NULL),
+    ('Acqua Naturale o Frizzante 0,5L', '矿泉水小', 2.50, 'Bevande - Analcoliche', NULL),
+    ('Coca-Cola / Fanta / Sprite 500ml', '可乐/芬达/雪碧', 3.50, 'Bevande - Analcoliche', NULL),
+    ('Estathé Limone o Pesca 330ml', '冰茶', 3.00, 'Bevande - Analcoliche', NULL),
+    ('Tè Cinese Caldo', '中国热茶', 3.50, 'Bevande - Analcoliche', NULL),
+    -- BEVANDE - ALTRO
+    ('Sakè', '清酒', 3.00, 'Bevande - Altro', NULL),
+    ('Liquore', '利口酒', 2.50, 'Bevande - Altro', NULL),
+    ('Cappuccino', '卡布奇诺', 2.50, 'Bevande - Altro', NULL),
+    ('Caffè', '咖啡', 1.50, 'Bevande - Altro', NULL);
+
+-- Tavoli (13 interni + 3 esterni)
+INSERT INTO tables (name, capacity) VALUES
+    ('T1', 4), ('T2', 4), ('T3', 4), ('T4', 4), ('T5', 4), ('T6', 4), ('T7', 4), ('T8', 4),
+    ('T9', 6), ('T10', 6), ('T11', 6), ('T12', 4), ('T13', 4),
+    ('E1', 4), ('E2', 4), ('E3', 4);
