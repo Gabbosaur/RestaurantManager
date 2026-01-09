@@ -7,6 +7,7 @@ import '../../data/models/order_model.dart';
 import '../providers/orders_provider.dart';
 import '../widgets/order_card.dart';
 import '../widgets/create_order_sheet.dart';
+import '../widgets/edit_order_sheet.dart';
 
 class OrdersScreen extends ConsumerWidget {
   const OrdersScreen({super.key});
@@ -100,6 +101,7 @@ class OrdersScreen extends ConsumerWidget {
                                 status,
                               );
                         },
+                        onEdit: () => _showEditOrderSheet(context, order),
                       )),
                 ],
                 if (completedOrders.isNotEmpty) ...[
@@ -150,6 +152,15 @@ class OrdersScreen extends ConsumerWidget {
       isScrollControlled: true,
       useSafeArea: true,
       builder: (context) => const CreateOrderSheet(),
+    );
+  }
+
+  void _showEditOrderSheet(BuildContext context, OrderModel order) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => EditOrderSheet(order: order),
     );
   }
 }

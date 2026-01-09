@@ -46,6 +46,7 @@ CREATE TABLE orders (
     status TEXT DEFAULT 'pending',
     total DECIMAL(10,2) NOT NULL DEFAULT 0,
     notes TEXT,
+    is_modified BOOLEAN DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );

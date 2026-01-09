@@ -49,6 +49,7 @@ class OrdersNotifier extends AsyncNotifier<List<OrderModel>> {
     await SupabaseService.client.from('orders').update({
       'items': items.map((e) => e.toJson()).toList(),
       'total': total,
+      'is_modified': true,
       'updated_at': DateTime.now().toIso8601String(),
     }).eq('id', orderId);
     ref.invalidateSelf();

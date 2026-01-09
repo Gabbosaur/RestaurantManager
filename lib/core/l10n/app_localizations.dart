@@ -702,4 +702,10 @@ class AppLocalizations {
         AppLanguage.english => 'The following items are no longer available:\n${items.join('\n')}\n\nDo you want to remove them?',
         AppLanguage.chinese => '以下菜品已无货：\n${items.join('\n')}\n\n是否从订单中移除？',
       };
+
+  String get modified => switch (language) {
+        AppLanguage.italian => 'MODIFICATO',
+        AppLanguage.english => 'MODIFIED',
+        AppLanguage.chinese => '已修改',
+      };
 }

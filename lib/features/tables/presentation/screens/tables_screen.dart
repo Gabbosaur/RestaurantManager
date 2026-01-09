@@ -5,7 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../orders/presentation/providers/orders_provider.dart';
-import '../../../orders/presentation/widgets/order_slip_sheet.dart';
+import '../../../orders/presentation/widgets/order_detail_sheet.dart';
 import '../../data/models/table_model.dart';
 import '../providers/tables_provider.dart';
 
@@ -116,7 +116,7 @@ class TablesScreen extends ConsumerWidget {
 
   void _handleTableTap(BuildContext context, WidgetRef ref, TableModel table,
       AppLocalizations l10n) {
-    // If occupied, open order slip
+    // If occupied, show order detail sheet
     if (table.status == TableStatus.occupied) {
       final order =
           ref.read(ordersProvider.notifier).getActiveOrderForTable(table.id);
@@ -125,8 +125,7 @@ class TablesScreen extends ConsumerWidget {
           context: context,
           isScrollControlled: true,
           useSafeArea: true,
-          backgroundColor: Colors.transparent,
-          builder: (context) => OrderSlipSheet(table: table, order: order),
+          builder: (context) => OrderDetailSheet(order: order),
         );
         return;
       }
@@ -382,7 +381,7 @@ class TablesScreen extends ConsumerWidget {
 
 
 /// Card widget for each table in the grid
-class _TableCard extends StatelessWidget {
+class _TableCard extends ConsumerWidget {
   final TableModel table;
   final AppLocalizations l10n;
   final VoidCallback onTap;
@@ -394,9 +393,17 @@ class _TableCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Get order total if occupied
+    double? orderTotal;
+    if (table.status == TableStatus.occupied) {
+      final order =
+          ref.watch(ordersProvider.notifier).getActiveOrderForTable(table.id);
+      orderTotal = order?.total;
+    }
 
     // Colori morbidi che si integrano col tema
     final (bgColor, fgColor, icon) = switch (table.status) {
@@ -458,6 +465,27 @@ class _TableCard extends StatelessWidget {
                 ],
               ),
               const Spacer(),
+              // Order total if occupied
+              if (table.status == TableStatus.occupied &&
+                  orderTotal != null) ...[
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '€${orderTotal.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      color: Colors.green.shade800,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
               // Status text
               Text(
                 statusText,
@@ -467,41 +495,37 @@ class _TableCard extends StatelessWidget {
                   fontSize: 13,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               // Info row
               Row(
                 children: [
                   Icon(Icons.chair_outlined,
-                      size: 18, color: fgColor.withOpacity(0.7)),
+                      size: 16, color: fgColor.withOpacity(0.7)),
                   const SizedBox(width: 4),
                   Text(
                     '${table.capacity} ${l10n.seats}',
                     style: TextStyle(
                       color: fgColor.withOpacity(0.7),
-                      fontSize: 13,
+                      fontSize: 12,
                     ),
                   ),
-                ],
-              ),
-              // Show people count if occupied
-              if (table.status == TableStatus.occupied &&
-                  table.numberOfPeople != null) ...[
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(Icons.people, size: 18, color: fgColor),
+                  // Show people count if occupied
+                  if (table.status == TableStatus.occupied &&
+                      table.numberOfPeople != null) ...[
+                    const SizedBox(width: 8),
+                    Icon(Icons.people, size: 16, color: fgColor),
                     const SizedBox(width: 4),
                     Text(
-                      '${table.numberOfPeople} ${l10n.people}',
+                      '${table.numberOfPeople}',
                       style: TextStyle(
                         color: fgColor,
                         fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                        fontSize: 12,
                       ),
                     ),
                   ],
-                ),
-              ],
+                ],
+              ),
               // Reserved by name
               if (table.status == TableStatus.reserved &&
                   table.reservedBy != null) ...[

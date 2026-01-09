@@ -8,12 +8,14 @@ class OrderCard extends StatelessWidget {
   final OrderModel order;
   final AppLocalizations l10n;
   final void Function(OrderStatus) onStatusChange;
+  final VoidCallback? onEdit;
 
   const OrderCard({
     super.key,
     required this.order,
     required this.l10n,
     required this.onStatusChange,
+    this.onEdit,
   });
 
   @override
@@ -123,10 +125,27 @@ class OrderCard extends StatelessWidget {
                   DateFormat('HH:mm - d MMM').format(order.createdAt),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
-                _StatusActions(
-                  currentStatus: order.status,
-                  l10n: l10n,
-                  onStatusChange: onStatusChange,
+                Row(
+                  children: [
+                    // Edit button (only for active orders)
+                    if (onEdit != null &&
+                        order.status != OrderStatus.served &&
+                        order.status != OrderStatus.cancelled)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: IconButton.outlined(
+                          onPressed: onEdit,
+                          icon: const Icon(Icons.edit, size: 18),
+                          visualDensity: VisualDensity.compact,
+                          tooltip: l10n.edit,
+                        ),
+                      ),
+                    _StatusActions(
+                      currentStatus: order.status,
+                      l10n: l10n,
+                      onStatusChange: onStatusChange,
+                    ),
+                  ],
                 ),
               ],
             ),

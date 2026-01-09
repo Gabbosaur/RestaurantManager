@@ -14,6 +14,7 @@ class OrderModel extends Equatable {
   final OrderStatus status;
   final double total;
   final String? notes;
+  final bool isModified; // true se l'ordine è stato modificato dopo la creazione
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -27,6 +28,7 @@ class OrderModel extends Equatable {
     required this.status,
     required this.total,
     this.notes,
+    this.isModified = false,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -52,6 +54,7 @@ class OrderModel extends Equatable {
       ),
       total: (json['total'] ?? 0).toDouble(),
       notes: json['notes'],
+      isModified: json['is_modified'] ?? false,
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: DateTime.parse(json['updated_at']),
     );
@@ -67,6 +70,7 @@ class OrderModel extends Equatable {
         'status': status.name,
         'total': total,
         'notes': notes,
+        'is_modified': isModified,
         'created_at': createdAt.toIso8601String(),
         'updated_at': updatedAt.toIso8601String(),
       };
@@ -81,6 +85,7 @@ class OrderModel extends Equatable {
     OrderStatus? status,
     double? total,
     String? notes,
+    bool? isModified,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -94,6 +99,7 @@ class OrderModel extends Equatable {
       status: status ?? this.status,
       total: total ?? this.total,
       notes: notes ?? this.notes,
+      isModified: isModified ?? this.isModified,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -101,7 +107,7 @@ class OrderModel extends Equatable {
 
   @override
   List<Object?> get props =>
-      [id, tableId, tableName, orderType, numberOfPeople, items, status, total, notes, createdAt, updatedAt];
+      [id, tableId, tableName, orderType, numberOfPeople, items, status, total, notes, isModified, createdAt, updatedAt];
 }
 
 class OrderItem extends Equatable {
