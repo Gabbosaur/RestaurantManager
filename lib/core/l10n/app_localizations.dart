@@ -154,15 +154,27 @@ class AppLocalizations {
       };
 
   String get served => switch (language) {
-        AppLanguage.italian => 'Servito',
-        AppLanguage.english => 'Served',
-        AppLanguage.chinese => '已上菜',
+        AppLanguage.italian => 'Completato',
+        AppLanguage.english => 'Completed',
+        AppLanguage.chinese => '已完成',
+      };
+
+  String get paid => switch (language) {
+        AppLanguage.italian => 'Pagato',
+        AppLanguage.english => 'Paid',
+        AppLanguage.chinese => '已付款',
       };
 
   String get cancelled => switch (language) {
         AppLanguage.italian => 'Annullato',
         AppLanguage.english => 'Cancelled',
         AppLanguage.chinese => '已取消',
+      };
+
+  String get markAsPaid => switch (language) {
+        AppLanguage.italian => 'Segna Pagato',
+        AppLanguage.english => 'Mark as Paid',
+        AppLanguage.chinese => '标记已付款',
       };
 
   // Actions
@@ -707,5 +719,171 @@ class AppLocalizations {
         AppLanguage.italian => 'MODIFICATO',
         AppLanguage.english => 'MODIFIED',
         AppLanguage.chinese => '已修改',
+      };
+
+  String get modifications => switch (language) {
+        AppLanguage.italian => 'Modifiche',
+        AppLanguage.english => 'Changes',
+        AppLanguage.chinese => '修改',
+      };
+
+  // Day summary
+  String get closeDay => switch (language) {
+        AppLanguage.italian => 'Chiudi Giornata',
+        AppLanguage.english => 'Close Day',
+        AppLanguage.chinese => '结束营业',
+      };
+
+  String get daySummary => switch (language) {
+        AppLanguage.italian => 'Riepilogo Giornata',
+        AppLanguage.english => 'Day Summary',
+        AppLanguage.chinese => '今日总结',
+      };
+
+  String get totalRevenue => switch (language) {
+        AppLanguage.italian => 'Incasso Totale',
+        AppLanguage.english => 'Total Revenue',
+        AppLanguage.chinese => '总收入',
+      };
+
+  String get paidOrders => switch (language) {
+        AppLanguage.italian => 'Ordini Pagati',
+        AppLanguage.english => 'Paid Orders',
+        AppLanguage.chinese => '已付订单',
+      };
+
+  String get totalCovers => switch (language) {
+        AppLanguage.italian => 'Coperti Totali',
+        AppLanguage.english => 'Total Covers',
+        AppLanguage.chinese => '总人数',
+      };
+
+  String get averagePerOrder => switch (language) {
+        AppLanguage.italian => 'Media per Ordine',
+        AppLanguage.english => 'Average per Order',
+        AppLanguage.chinese => '平均每单',
+      };
+
+  String get topDishes => switch (language) {
+        AppLanguage.italian => 'Piatti più Ordinati',
+        AppLanguage.english => 'Top Dishes',
+        AppLanguage.chinese => '热门菜品',
+      };
+
+  String get noDataToday => switch (language) {
+        AppLanguage.italian => 'Nessun dato per oggi',
+        AppLanguage.english => 'No data for today',
+        AppLanguage.chinese => '今日暂无数据',
+      };
+
+  // Analytics
+  String get analytics => switch (language) {
+        AppLanguage.italian => 'Statistiche',
+        AppLanguage.english => 'Analytics',
+        AppLanguage.chinese => '统计',
+      };
+
+  String get daily => switch (language) {
+        AppLanguage.italian => 'Giorno',
+        AppLanguage.english => 'Day',
+        AppLanguage.chinese => '日',
+      };
+
+  String get monthly => switch (language) {
+        AppLanguage.italian => 'Mese',
+        AppLanguage.english => 'Month',
+        AppLanguage.chinese => '月',
+      };
+
+  String get yearly => switch (language) {
+        AppLanguage.italian => 'Anno',
+        AppLanguage.english => 'Year',
+        AppLanguage.chinese => '年',
+      };
+
+  String get tableOrdersLabel => switch (language) {
+        AppLanguage.italian => 'Ordini Tavolo',
+        AppLanguage.english => 'Table Orders',
+        AppLanguage.chinese => '堂食订单',
+      };
+
+  String get takeawayOrdersLabel => switch (language) {
+        AppLanguage.italian => 'Ordini Asporto',
+        AppLanguage.english => 'Takeaway Orders',
+        AppLanguage.chinese => '外卖订单',
+      };
+
+  String get dailyBreakdown => switch (language) {
+        AppLanguage.italian => 'Dettaglio Giornaliero',
+        AppLanguage.english => 'Daily Breakdown',
+        AppLanguage.chinese => '每日明细',
+      };
+
+  String get exportExcel => switch (language) {
+        AppLanguage.italian => 'Esporta Excel',
+        AppLanguage.english => 'Export Excel',
+        AppLanguage.chinese => '导出Excel',
+      };
+
+  String get exportSuccess => switch (language) {
+        AppLanguage.italian => 'File salvato',
+        AppLanguage.english => 'File saved',
+        AppLanguage.chinese => '文件已保存',
+      };
+
+  String get exportError => switch (language) {
+        AppLanguage.italian => 'Errore esportazione',
+        AppLanguage.english => 'Export error',
+        AppLanguage.chinese => '导出错误',
+      };
+
+  String get summarySaved => switch (language) {
+        AppLanguage.italian => 'Riepilogo salvato',
+        AppLanguage.english => 'Summary saved',
+        AppLanguage.chinese => '总结已保存',
+      };
+
+  String get viewAnalytics => switch (language) {
+        AppLanguage.italian => 'Vedi Statistiche',
+        AppLanguage.english => 'View Analytics',
+        AppLanguage.chinese => '查看统计',
+      };
+
+  // Served items
+  String servedCount(int served, int total) => switch (language) {
+        AppLanguage.italian => '$served/$total serviti',
+        AppLanguage.english => '$served/$total served',
+        AppLanguage.chinese => '已上$served/$total',
+      };
+
+  String servedCountShort(int served, int total) => switch (language) {
+        AppLanguage.italian => '($served/$total ✓)',
+        AppLanguage.english => '($served/$total ✓)',
+        AppLanguage.chinese => '(已上$served/$total)',
+      };
+
+  // Cancel order
+  String get cancelOrder => switch (language) {
+        AppLanguage.italian => 'Annulla Ordine',
+        AppLanguage.english => 'Cancel Order',
+        AppLanguage.chinese => '取消订单',
+      };
+
+  String get cancelOrderConfirm => switch (language) {
+        AppLanguage.italian => 'Sei sicuro di voler annullare questo ordine?',
+        AppLanguage.english => 'Are you sure you want to cancel this order?',
+        AppLanguage.chinese => '确定要取消此订单吗？',
+      };
+
+  String get orderCancelled => switch (language) {
+        AppLanguage.italian => 'Ordine annullato',
+        AppLanguage.english => 'Order cancelled',
+        AppLanguage.chinese => '订单已取消',
+      };
+
+  String get confirm => switch (language) {
+        AppLanguage.italian => 'Conferma',
+        AppLanguage.english => 'Confirm',
+        AppLanguage.chinese => '确认',
       };
 }

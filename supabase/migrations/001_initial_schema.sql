@@ -47,6 +47,8 @@ CREATE TABLE orders (
     total DECIMAL(10,2) NOT NULL DEFAULT 0,
     notes TEXT,
     is_modified BOOLEAN DEFAULT false,
+    changes JSONB,
+    served_items JSONB DEFAULT '[]',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -251,3 +253,21 @@ INSERT INTO tables (name, capacity) VALUES
     ('T1', 4), ('T2', 4), ('T3', 4), ('T4', 4), ('T5', 4), ('T6', 4), ('T7', 4), ('T8', 4),
     ('T9', 6), ('T10', 6), ('T11', 6), ('T12', 4), ('T13', 4),
     ('E1', 4), ('E2', 4), ('E3', 4);
+
+-- Daily summaries table (per analytics)
+CREATE TABLE daily_summaries (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    date DATE NOT NULL UNIQUE,
+    total_revenue DECIMAL(10,2) NOT NULL DEFAULT 0,
+    order_count INTEGER NOT NULL DEFAULT 0,
+    total_covers INTEGER NOT NULL DEFAULT 0,
+    average_per_order DECIMAL(10,2) NOT NULL DEFAULT 0,
+    dish_sales JSONB DEFAULT '[]',
+    top_dishes JSONB DEFAULT '[]',
+    table_orders INTEGER NOT NULL DEFAULT 0,
+    takeaway_orders INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE daily_summaries ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow authenticated access" ON daily_summaries FOR ALL TO authenticated USING (true) WITH CHECK (true);

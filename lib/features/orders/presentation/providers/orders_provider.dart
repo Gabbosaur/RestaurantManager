@@ -32,10 +32,20 @@ class OrdersNotifier extends AsyncNotifier<List<OrderModel>> {
   }
 
   Future<void> updateStatus(String orderId, OrderStatus status) async {
-    await SupabaseService.client.from('orders').update({
+    // Quando lo stato cambia (es. inizia preparazione), pulisci le modifiche
+    // così il cuoco sa che ha visto le modifiche
+    final Map<String, dynamic> updateData = {
       'status': status.name,
       'updated_at': DateTime.now().toIso8601String(),
-    }).eq('id', orderId);
+    };
+    
+    // Se passa a "preparing", pulisci le modifiche e il flag is_modified
+    if (status == OrderStatus.preparing) {
+      updateData['changes'] = null;
+      updateData['is_modified'] = false;
+    }
+    
+    await SupabaseService.client.from('orders').update(updateData).eq('id', orderId);
     ref.invalidateSelf();
   }
 
@@ -45,14 +55,97 @@ class OrdersNotifier extends AsyncNotifier<List<OrderModel>> {
   }
 
   Future<void> updateOrderItems(
-      String orderId, List<OrderItem> items, double total) async {
-    await SupabaseService.client.from('orders').update({
-      'items': items.map((e) => e.toJson()).toList(),
+      String orderId,
+      List<OrderItem> newItems,
+      double total,
+      List<OrderItem> oldItems) async {
+    // Calcola le modifiche confrontando vecchi e nuovi items
+    final changes = _calculateChanges(oldItems, newItems);
+
+    // Recupera le modifiche esistenti e aggiungi le nuove
+    final existingOrder = state.valueOrNull?.firstWhere(
+      (o) => o.id == orderId,
+      orElse: () => throw Exception('Order not found'),
+    );
+    final existingChanges = existingOrder?.changes ?? [];
+    final allChanges = [...existingChanges, ...changes];
+
+    // Controlla se ci sono nuovi piatti aggiunti
+    final hasNewItems = changes.any((c) => c.isAddition);
+    
+    // Se l'ordine era "served" (completato) e sono stati aggiunti piatti, torna a "preparing"
+    final shouldChangeStatus = hasNewItems && 
+        existingOrder?.status == OrderStatus.served;
+
+    final Map<String, dynamic> updateData = {
+      'items': newItems.map((e) => e.toJson()).toList(),
       'total': total,
       'is_modified': true,
+      'changes': allChanges.map((e) => e.toJson()).toList(),
       'updated_at': DateTime.now().toIso8601String(),
-    }).eq('id', orderId);
+    };
+    
+    if (shouldChangeStatus) {
+      updateData['status'] = OrderStatus.preparing.name;
+    }
+
+    await SupabaseService.client.from('orders').update(updateData).eq('id', orderId);
     ref.invalidateSelf();
+  }
+
+  /// Calcola le differenze tra vecchi e nuovi items
+  List<OrderChange> _calculateChanges(
+      List<OrderItem> oldItems, List<OrderItem> newItems) {
+    final changes = <OrderChange>[];
+    final now = DateTime.now();
+
+    // Mappa per confronto rapido
+    final oldMap = {for (var item in oldItems) item.menuItemId: item};
+    final newMap = {for (var item in newItems) item.menuItemId: item};
+
+    // Trova aggiunte e modifiche quantità
+    for (final newItem in newItems) {
+      final oldItem = oldMap[newItem.menuItemId];
+      if (oldItem == null) {
+        // Nuovo piatto aggiunto
+        changes.add(OrderChange(
+          name: newItem.name,
+          nameZh: newItem.nameZh,
+          quantity: newItem.quantity,
+          timestamp: now,
+        ));
+      } else if (newItem.quantity > oldItem.quantity) {
+        // Quantità aumentata
+        changes.add(OrderChange(
+          name: newItem.name,
+          nameZh: newItem.nameZh,
+          quantity: newItem.quantity - oldItem.quantity,
+          timestamp: now,
+        ));
+      } else if (newItem.quantity < oldItem.quantity) {
+        // Quantità diminuita
+        changes.add(OrderChange(
+          name: newItem.name,
+          nameZh: newItem.nameZh,
+          quantity: newItem.quantity - oldItem.quantity, // negativo
+          timestamp: now,
+        ));
+      }
+    }
+
+    // Trova rimozioni complete
+    for (final oldItem in oldItems) {
+      if (!newMap.containsKey(oldItem.menuItemId)) {
+        changes.add(OrderChange(
+          name: oldItem.name,
+          nameZh: oldItem.nameZh,
+          quantity: -oldItem.quantity, // negativo = rimosso
+          timestamp: now,
+        ));
+      }
+    }
+
+    return changes;
   }
 
   /// Get active order for a specific table
@@ -62,11 +155,145 @@ class OrdersNotifier extends AsyncNotifier<List<OrderModel>> {
       return orders.firstWhere(
         (o) =>
             o.tableId == tableId &&
-            o.status != OrderStatus.served &&
+            o.status != OrderStatus.paid &&
             o.status != OrderStatus.cancelled,
       );
     } catch (_) {
       return null;
     }
+  }
+
+  /// Pulisce le modifiche di un ordine (quando il cuoco le ha viste)
+  Future<void> clearChanges(String orderId) async {
+    await SupabaseService.client.from('orders').update({
+      'changes': null,
+      'is_modified': false,
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', orderId);
+    ref.invalidateSelf();
+  }
+
+  /// Incrementa di 1 la quantità servita per un piatto (o decrementa se già tutto servito)
+  /// Se tutti i piatti sono serviti, l'ordine passa automaticamente a "served"
+  Future<void> toggleItemServed(String orderId, String menuItemId) async {
+    final order = state.valueOrNull?.firstWhere(
+      (o) => o.id == orderId,
+      orElse: () => throw Exception('Order not found'),
+    );
+    if (order == null) return;
+
+    final item = order.items.firstWhere(
+      (i) => i.menuItemId == menuItemId,
+      orElse: () => const OrderItem(menuItemId: '', name: '', quantity: 0, price: 0),
+    );
+    if (item.menuItemId.isEmpty) return;
+
+    final servedQuantities = Map<String, int>.from(order.servedQuantities);
+    final currentServed = servedQuantities[menuItemId] ?? 0;
+    
+    if (currentServed >= item.quantity) {
+      // Già tutto servito -> reset a 0
+      servedQuantities.remove(menuItemId);
+    } else {
+      // Incrementa di 1
+      servedQuantities[menuItemId] = currentServed + 1;
+    }
+
+    // Controlla se tutti i piatti sono ora serviti
+    final updatedOrder = order.copyWith(servedQuantities: servedQuantities);
+    final allServed = updatedOrder.isFullyServed;
+    
+    final Map<String, dynamic> updateData = {
+      'served_items': servedQuantities,
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+    
+    // Se tutti serviti e non già in stato served/paid, aggiorna automaticamente
+    if (allServed && order.status != OrderStatus.served && order.status != OrderStatus.paid) {
+      updateData['status'] = OrderStatus.served.name;
+    }
+    // Se non tutti serviti ma era in served, torna a preparing (qualcuno ha aggiunto piatti)
+    else if (!allServed && order.status == OrderStatus.served) {
+      updateData['status'] = OrderStatus.preparing.name;
+    }
+
+    await SupabaseService.client.from('orders').update(updateData).eq('id', orderId);
+    ref.invalidateSelf();
+  }
+  
+  /// Segna tutte le quantità di un piatto come servite
+  Future<void> markItemFullyServed(String orderId, String menuItemId) async {
+    final order = state.valueOrNull?.firstWhere(
+      (o) => o.id == orderId,
+      orElse: () => throw Exception('Order not found'),
+    );
+    if (order == null) return;
+
+    final item = order.items.firstWhere(
+      (i) => i.menuItemId == menuItemId,
+      orElse: () => const OrderItem(menuItemId: '', name: '', quantity: 0, price: 0),
+    );
+    if (item.menuItemId.isEmpty) return;
+
+    final servedQuantities = Map<String, int>.from(order.servedQuantities);
+    servedQuantities[menuItemId] = item.quantity;
+
+    await SupabaseService.client.from('orders').update({
+      'served_items': servedQuantities,
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', orderId);
+    ref.invalidateSelf();
+  }
+
+  /// Segna l'ordine come pagato e libera il tavolo
+  Future<void> markAsPaid(String orderId) async {
+    final order = state.valueOrNull?.firstWhere(
+      (o) => o.id == orderId,
+      orElse: () => throw Exception('Order not found'),
+    );
+    if (order == null) return;
+
+    // Aggiorna lo stato dell'ordine a "paid"
+    await SupabaseService.client.from('orders').update({
+      'status': OrderStatus.paid.name,
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', orderId);
+
+    // Se è un ordine al tavolo, libera il tavolo
+    if (order.tableId != null && !order.isTakeaway) {
+      await SupabaseService.client.from('tables').update({
+        'status': 'available',
+        'current_order_id': null,
+        'number_of_people': null,
+      }).eq('id', order.tableId!);
+    }
+
+    ref.invalidateSelf();
+  }
+
+  /// Annulla l'ordine e libera il tavolo
+  Future<void> cancelOrder(String orderId) async {
+    final order = state.valueOrNull?.firstWhere(
+      (o) => o.id == orderId,
+      orElse: () => throw Exception('Order not found'),
+    );
+    if (order == null) return;
+
+    // Aggiorna lo stato dell'ordine a "cancelled"
+    await SupabaseService.client.from('orders').update({
+      'status': OrderStatus.cancelled.name,
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', orderId);
+
+    // Se è un ordine al tavolo, libera il tavolo
+    if (order.tableId != null && !order.isTakeaway) {
+      await SupabaseService.client.from('tables').update({
+        'status': 'available',
+        'current_order_id': null,
+        'number_of_people': null,
+      }).eq('id', order.tableId!);
+    }
+
+    ref.invalidateSelf();
   }
 }

@@ -9,6 +9,7 @@ class OrderCard extends StatelessWidget {
   final AppLocalizations l10n;
   final void Function(OrderStatus) onStatusChange;
   final VoidCallback? onEdit;
+  final double coverCharge;
 
   const OrderCard({
     super.key,
@@ -16,6 +17,7 @@ class OrderCard extends StatelessWidget {
     required this.l10n,
     required this.onStatusChange,
     this.onEdit,
+    this.coverCharge = 1.50,
   });
 
   @override
@@ -81,6 +83,28 @@ class OrderCard extends StatelessWidget {
                     ],
                   ),
                 )),
+            // Cover charge row (only for table orders with people)
+            if (!order.isTakeaway && (order.numberOfPeople ?? 0) > 0)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${order.numberOfPeople}x ${l10n.coverCharge}',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.outline,
+                          ),
+                    ),
+                    Text(
+                      '€${(coverCharge * order.numberOfPeople!).toStringAsFixed(2)}',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.outline,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
             const Divider(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -121,31 +145,34 @@ class OrderCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  DateFormat('HH:mm - d MMM').format(order.createdAt),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+                // Left side: time + edit button
                 Row(
                   children: [
-                    // Edit button (only for active orders)
+                    Text(
+                      DateFormat('HH:mm - d MMM').format(order.createdAt),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    // Edit button (only for active orders) - on the left, away from action button
                     if (onEdit != null &&
                         order.status != OrderStatus.served &&
-                        order.status != OrderStatus.cancelled)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: IconButton.outlined(
-                          onPressed: onEdit,
-                          icon: const Icon(Icons.edit, size: 18),
+                        order.status != OrderStatus.cancelled) ...[
+                      const SizedBox(width: 12),
+                      TextButton.icon(
+                        onPressed: onEdit,
+                        icon: const Icon(Icons.edit, size: 16),
+                        label: Text(l10n.edit),
+                        style: TextButton.styleFrom(
                           visualDensity: VisualDensity.compact,
-                          tooltip: l10n.edit,
                         ),
                       ),
-                    _StatusActions(
-                      currentStatus: order.status,
-                      l10n: l10n,
-                      onStatusChange: onStatusChange,
-                    ),
+                    ],
                   ],
+                ),
+                // Right side: status action button
+                _StatusActions(
+                  currentStatus: order.status,
+                  l10n: l10n,
+                  onStatusChange: onStatusChange,
                 ),
               ],
             ),

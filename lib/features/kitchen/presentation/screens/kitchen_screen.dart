@@ -4,11 +4,27 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/l10n/language_provider.dart';
+import '../../../inventory/presentation/screens/inventory_screen.dart';
 import '../../../orders/data/models/order_model.dart';
 import '../../../orders/presentation/providers/orders_provider.dart';
 
 class KitchenScreen extends ConsumerWidget {
   const KitchenScreen({super.key});
+
+  void _showIngredientsSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => const InventoryScreen(),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -32,6 +48,12 @@ class KitchenScreen extends ConsumerWidget {
         ),
         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
         actions: [
+          // Ingredients button
+          IconButton(
+            icon: const Icon(Icons.inventory_2, size: 28),
+            tooltip: l10n.inventory,
+            onPressed: () => _showIngredientsSheet(context),
+          ),
           // Exit button
           IconButton(
             icon: const Icon(Icons.exit_to_app, size: 28),
@@ -75,6 +97,9 @@ class KitchenScreen extends ConsumerWidget {
                   onAction: (order) => ref
                       .read(ordersProvider.notifier)
                       .updateStatus(order.id, OrderStatus.preparing),
+                  onDismissChanges: (orderId) => ref
+                      .read(ordersProvider.notifier)
+                      .clearChanges(orderId),
                   l10n: l10n,
                 ),
               ),
@@ -90,6 +115,9 @@ class KitchenScreen extends ConsumerWidget {
                   onAction: (order) => ref
                       .read(ordersProvider.notifier)
                       .updateStatus(order.id, OrderStatus.ready),
+                  onDismissChanges: (orderId) => ref
+                      .read(ordersProvider.notifier)
+                      .clearChanges(orderId),
                   l10n: l10n,
                 ),
               ),
@@ -105,6 +133,9 @@ class KitchenScreen extends ConsumerWidget {
                   onAction: (order) => ref
                       .read(ordersProvider.notifier)
                       .updateStatus(order.id, OrderStatus.served),
+                  onDismissChanges: (orderId) => ref
+                      .read(ordersProvider.notifier)
+                      .clearChanges(orderId),
                   l10n: l10n,
                 ),
               ),
@@ -192,6 +223,9 @@ class _KitchenTabs extends StatelessWidget {
                   onAction: (order) => ref
                       .read(ordersProvider.notifier)
                       .updateStatus(order.id, OrderStatus.preparing),
+                  onDismissChanges: (orderId) => ref
+                      .read(ordersProvider.notifier)
+                      .clearChanges(orderId),
                   l10n: l10n,
                   showHeader: false,
                 ),
@@ -204,6 +238,9 @@ class _KitchenTabs extends StatelessWidget {
                   onAction: (order) => ref
                       .read(ordersProvider.notifier)
                       .updateStatus(order.id, OrderStatus.ready),
+                  onDismissChanges: (orderId) => ref
+                      .read(ordersProvider.notifier)
+                      .clearChanges(orderId),
                   l10n: l10n,
                   showHeader: false,
                 ),
@@ -216,6 +253,9 @@ class _KitchenTabs extends StatelessWidget {
                   onAction: (order) => ref
                       .read(ordersProvider.notifier)
                       .updateStatus(order.id, OrderStatus.served),
+                  onDismissChanges: (orderId) => ref
+                      .read(ordersProvider.notifier)
+                      .clearChanges(orderId),
                   l10n: l10n,
                   showHeader: false,
                 ),
@@ -261,6 +301,7 @@ class _OrderColumn extends StatelessWidget {
   final String emptyMessage;
   final String actionLabel;
   final void Function(OrderModel) onAction;
+  final void Function(String orderId)? onDismissChanges;
   final AppLocalizations l10n;
   final bool showHeader;
 
@@ -272,6 +313,7 @@ class _OrderColumn extends StatelessWidget {
     required this.actionLabel,
     required this.onAction,
     required this.l10n,
+    this.onDismissChanges,
     this.showHeader = true,
   });
 
@@ -340,6 +382,7 @@ class _OrderColumn extends StatelessWidget {
                         actionLabel: actionLabel,
                         onAction: () => onAction(order),
                         l10n: l10n,
+                        onDismissChanges: onDismissChanges,
                       );
                     },
                   ),
@@ -355,6 +398,7 @@ class _KitchenOrderCard extends StatelessWidget {
   final Color color;
   final String actionLabel;
   final VoidCallback onAction;
+  final void Function(String orderId)? onDismissChanges;
   final AppLocalizations l10n;
 
   const _KitchenOrderCard({
@@ -363,6 +407,7 @@ class _KitchenOrderCard extends StatelessWidget {
     required this.actionLabel,
     required this.onAction,
     required this.l10n,
+    this.onDismissChanges,
   });
 
   String _getTimeAgo(DateTime createdAt) {
@@ -374,6 +419,24 @@ class _KitchenOrderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isUrgent = DateTime.now().difference(order.createdAt).inMinutes > 15;
+    
+    // Crea mappa delle modifiche per menuItemId per lookup veloce
+    final changesMap = <String, int>{};
+    if (order.changes != null) {
+      for (final change in order.changes!) {
+        // Cerca il menuItemId corrispondente negli items
+        for (final item in order.items) {
+          if (item.name == change.name || item.nameZh == change.nameZh) {
+            changesMap[item.menuItemId] = (changesMap[item.menuItemId] ?? 0) + change.quantity;
+          }
+        }
+      }
+    }
+    
+    // Modifiche per piatti rimossi (non più in items)
+    final removedChanges = order.changes?.where((c) => 
+      c.isRemoval && !order.items.any((i) => i.name == c.name || i.nameZh == c.nameZh)
+    ).toList() ?? [];
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -389,7 +452,7 @@ class _KitchenOrderCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header: Order type + time + modified badge
+            // Header: Order type + time + modified badge + dismiss button
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -416,31 +479,26 @@ class _KitchenOrderCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      // Modified badge
-                      if (order.isModified) ...[
+                      // Modified badge with dismiss
+                      if (order.isModified && order.changes != null && order.changes!.isNotEmpty) ...[
                         const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.purple,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.edit,
-                                  color: Colors.white, size: 12),
-                              const SizedBox(width: 2),
-                              Text(
-                                l10n.modified,
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
+                        InkWell(
+                          onTap: onDismissChanges != null ? () => onDismissChanges!(order.id) : null,
+                          borderRadius: BorderRadius.circular(4),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.purple,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.edit, color: Colors.white, size: 12),
+                                SizedBox(width: 2),
+                                Icon(Icons.check, color: Colors.white, size: 12),
+                              ],
+                            ),
                           ),
                         ),
                       ],
@@ -468,76 +526,234 @@ class _KitchenOrderCard extends StatelessWidget {
             ),
             const Divider(height: 16),
             // Items list - large and clear (Chinese name for kitchen)
-            ...order.items.map((item) => Padding(
+            ...order.items.map((item) {
+              final servedQty = order.getServedQuantity(item.menuItemId);
+              final isFullyServed = servedQty >= item.quantity;
+              final hasPartialServed = servedQty > 0 && servedQty < item.quantity;
+              final remaining = item.quantity - servedQty;
+              final changeQty = changesMap[item.menuItemId];
+              return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: color.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Center(
-                          child: Text(
-                            '${item.quantity}x',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: color.shade700,
-                            ),
+                  child: Opacity(
+                    opacity: isFullyServed ? 0.5 : 1.0,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Quantity badge - più visibile in dark mode
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: isFullyServed 
+                                ? Colors.grey 
+                                : hasPartialServed 
+                                    ? Colors.orange 
+                                    : color,
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: isFullyServed
+                                ? null
+                                : [
+                                    BoxShadow(
+                                      color: color.withOpacity(0.3),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                          ),
+                          child: Center(
+                            child: isFullyServed
+                                ? const Icon(Icons.check,
+                                    color: Colors.white, size: 20)
+                                : hasPartialServed
+                                    ? Text(
+                                        '${remaining}x',
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : Text(
+                                        '${item.quantity}x',
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Nome cinese (grande) - se disponibile
-                            if (item.nameZh != null) ...[
-                              Text(
-                                item.nameZh!,
-                                style: const TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Nome cinese (grande) - se disponibile
+                              if (item.nameZh != null) ...[
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        item.nameZh!,
+                                        style: TextStyle(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.bold,
+                                          decoration: isFullyServed
+                                              ? TextDecoration.lineThrough
+                                              : null,
+                                          decorationThickness: 2,
+                                        ),
+                                      ),
+                                    ),
+                                    // Change badge inline
+                                    if (changeQty != null && changeQty != 0) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: changeQty > 0 ? Colors.green : Colors.red,
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          changeQty > 0 ? '+$changeQty' : '$changeQty',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
-                              ),
-                              // Nome italiano (piccolo sotto)
-                              Text(
-                                item.name,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.grey.shade600,
+                                // Nome italiano (piccolo sotto) + served info
+                                Row(
+                                  children: [
+                                    Text(
+                                      item.name,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey.shade600,
+                                        decoration: isFullyServed
+                                            ? TextDecoration.lineThrough
+                                            : null,
+                                      ),
+                                    ),
+                                    if (hasPartialServed) ...[
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        l10n.servedCountShort(servedQty, item.quantity),
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.orange.shade700,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
-                              ),
-                            ] else ...[
-                              // Solo nome italiano se non c'è cinese
-                              Text(
-                                item.name,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
+                              ] else ...[
+                                // Solo nome italiano se non c'è cinese
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        item.name,
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w600,
+                                          decoration: isFullyServed
+                                              ? TextDecoration.lineThrough
+                                              : null,
+                                          decorationThickness: 2,
+                                        ),
+                                      ),
+                                    ),
+                                    // Change badge inline
+                                    if (changeQty != null && changeQty != 0) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: changeQty > 0 ? Colors.green : Colors.red,
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          changeQty > 0 ? '+$changeQty' : '$changeQty',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
-                              ),
+                                if (hasPartialServed)
+                                  Text(
+                                    l10n.servedCountShort(servedQty, item.quantity),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.orange.shade700,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                              ],
+                              if (item.notes != null && item.notes!.isNotEmpty)
+                                Text(
+                                  '⚠️ ${item.notes}',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.orange,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
                             ],
-                            if (item.notes != null && item.notes!.isNotEmpty)
-                              Text(
-                                '⚠️ ${item.notes}',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.orange,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                          ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+            }),
+            // Removed items (piatti completamente rimossi)
+            ...removedChanges.map((change) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Opacity(
+                opacity: 0.6,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Badge rosso con X
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade400,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Center(
+                        child: Icon(Icons.close, color: Colors.white, size: 20),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        '${change.quantity.abs()}x ${change.nameZh ?? change.name}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.red.shade700,
+                          decoration: TextDecoration.lineThrough,
+                          decorationThickness: 2,
                         ),
                       ),
-                    ],
-                  ),
-                )),
+                    ),
+                  ],
+                ),
+              ),
+            )),
             // Order notes
             if (order.notes != null && order.notes!.isNotEmpty) ...[
               const SizedBox(height: 8),

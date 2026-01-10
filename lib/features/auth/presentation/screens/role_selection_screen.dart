@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/l10n/language_provider.dart';
+import '../../../../core/theme/theme_provider.dart';
 import '../../../../services/supabase_service.dart';
 
 class RoleSelectionScreen extends ConsumerWidget {
@@ -21,9 +22,9 @@ class RoleSelectionScreen extends ConsumerWidget {
         title: const Text('Xin Xing 新星'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.language),
-            tooltip: l10n.languageLabel,
-            onPressed: () => _showLanguageDialog(context, ref, l10n),
+            icon: const Icon(Icons.settings),
+            tooltip: l10n.settings,
+            onPressed: () => _showSettingsDialog(context, ref, l10n),
           ),
           IconButton(
             icon: const Icon(Icons.logout),
@@ -97,31 +98,93 @@ class RoleSelectionScreen extends ConsumerWidget {
     );
   }
 
-  void _showLanguageDialog(
+  void _showSettingsDialog(
       BuildContext context, WidgetRef ref, AppLocalizations l10n) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.languageLabel),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: AppLanguage.values.map((lang) {
-            final isSelected = ref.read(languageProvider) == lang;
-            final label = switch (lang) {
-              AppLanguage.italian => '🇮🇹 Italiano',
-              AppLanguage.english => '🇬🇧 English',
-              AppLanguage.chinese => '🇨🇳 中文',
-            };
-            return ListTile(
-              title: Text(label),
-              trailing: isSelected ? const Icon(Icons.check) : null,
-              onTap: () {
-                ref.read(languageProvider.notifier).setLanguage(lang);
-                Navigator.pop(context);
-              },
-            );
-          }).toList(),
-        ),
+      builder: (context) => Consumer(
+        builder: (context, ref, _) {
+          final currentTheme = ref.watch(themeProvider);
+          final currentLang = ref.watch(languageProvider);
+
+          return AlertDialog(
+            title: Text(l10n.settings),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Theme section
+                Text(
+                  l10n.theme,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                SegmentedButton<ThemeMode>(
+                  segments: [
+                    ButtonSegment(
+                      value: ThemeMode.light,
+                      icon: const Icon(Icons.light_mode, size: 18),
+                      label: Text(l10n.lightTheme),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.dark,
+                      icon: const Icon(Icons.dark_mode, size: 18),
+                      label: Text(l10n.darkTheme),
+                    ),
+                  ],
+                  selected: {
+                    currentTheme == ThemeMode.system
+                        ? (MediaQuery.of(context).platformBrightness ==
+                                Brightness.dark
+                            ? ThemeMode.dark
+                            : ThemeMode.light)
+                        : currentTheme
+                  },
+                  onSelectionChanged: (modes) {
+                    ref.read(themeProvider.notifier).setTheme(modes.first);
+                  },
+                ),
+                const SizedBox(height: 20),
+                // Language section
+                Text(
+                  l10n.languageLabel,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                ...AppLanguage.values.map((lang) {
+                  final isSelected = currentLang == lang;
+                  final label = switch (lang) {
+                    AppLanguage.italian => '🇮🇹 Italiano',
+                    AppLanguage.english => '🇬🇧 English',
+                    AppLanguage.chinese => '🇨🇳 中文',
+                  };
+                  return ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(label),
+                    trailing: isSelected
+                        ? Icon(Icons.check,
+                            color: Theme.of(context).colorScheme.primary)
+                        : null,
+                    onTap: () {
+                      ref.read(languageProvider.notifier).setLanguage(lang);
+                    },
+                  );
+                }),
+              ],
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(l10n.close),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

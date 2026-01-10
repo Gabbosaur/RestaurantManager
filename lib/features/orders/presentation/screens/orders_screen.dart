@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
+import '../../../../core/config/restaurant_settings_provider.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../data/models/order_model.dart';
 import '../providers/orders_provider.dart';
-import '../widgets/order_card.dart';
 import '../widgets/create_order_sheet.dart';
 import '../widgets/edit_order_sheet.dart';
+import '../widgets/order_detail_sheet.dart';
 
 class OrdersScreen extends ConsumerWidget {
   const OrdersScreen({super.key});
@@ -15,8 +17,10 @@ class OrdersScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ordersAsync = ref.watch(ordersProvider);
+    final settingsAsync = ref.watch(restaurantSettingsProvider);
     final language = ref.watch(languageProvider);
     final l10n = AppLocalizations(language);
+    final coverCharge = settingsAsync.valueOrNull?.coverCharge ?? 1.50;
 
     return Scaffold(
       body: ordersAsync.when(
@@ -48,10 +52,8 @@ class OrdersScreen extends ConsumerWidget {
                     color: Theme.of(context).colorScheme.outline,
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    l10n.noOrders,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
+                  Text(l10n.noOrders,
+                      style: Theme.of(context).textTheme.titleLarge),
                 ],
               ),
             );
@@ -59,80 +61,123 @@ class OrdersScreen extends ConsumerWidget {
 
           final activeOrders = orders
               .where((o) =>
-                  o.status != OrderStatus.served &&
+                  o.status != OrderStatus.paid &&
                   o.status != OrderStatus.cancelled)
               .toList();
           final completedOrders = orders
               .where((o) =>
-                  o.status == OrderStatus.served ||
+                  o.status == OrderStatus.paid ||
                   o.status == OrderStatus.cancelled)
               .toList();
 
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(ordersProvider),
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                if (activeOrders.isNotEmpty) ...[
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.pending_actions,
-                        size: 20,
-                        color: Theme.of(context).colorScheme.primary,
+            child: CustomScrollView(
+              slivers: [
+                // Active orders header
+                if (activeOrders.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                      child: Row(
+                        children: [
+                          Icon(Icons.pending_actions,
+                              size: 20,
+                              color: Theme.of(context).colorScheme.primary),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${l10n.activeOrders} (${activeOrders.length})',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${l10n.activeOrders} (${activeOrders.length})',
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                      ),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  ...activeOrders.map((order) => OrderCard(
-                        order: order,
-                        l10n: l10n,
-                        onStatusChange: (status) {
-                          ref.read(ordersProvider.notifier).updateStatus(
-                                order.id,
-                                status,
-                              );
+                // Active orders grid
+                if (activeOrders.isNotEmpty)
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    sliver: SliverGrid(
+                      gridDelegate:
+                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 220,
+                        childAspectRatio: 0.75,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
+                      ),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final order = activeOrders[index];
+                          return _CompactOrderCard(
+                            order: order,
+                            l10n: l10n,
+                            coverCharge: coverCharge,
+                            onTap: () => _showOrderDetail(context, order),
+                          );
                         },
-                        onEdit: () => _showEditOrderSheet(context, order),
-                      )),
-                ],
-                if (completedOrders.isNotEmpty) ...[
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.check_circle_outline,
-                        size: 20,
-                        color: Theme.of(context).colorScheme.outline,
+                        childCount: activeOrders.length,
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${l10n.completedToday} (${completedOrders.length})',
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: Theme.of(context).colorScheme.outline,
-                                ),
-                      ),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  ...completedOrders.map((order) => Opacity(
-                        opacity: 0.6,
-                        child: OrderCard(
-                          order: order,
-                          l10n: l10n,
-                          onStatusChange: (_) {},
-                        ),
-                      )),
-                ],
+
+                // Completed orders header
+                if (completedOrders.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+                      child: Row(
+                        children: [
+                          Icon(Icons.check_circle_outline,
+                              size: 20,
+                              color: Theme.of(context).colorScheme.outline),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${l10n.completedToday} (${completedOrders.length})',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                    color:
+                                        Theme.of(context).colorScheme.outline),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                // Completed orders grid
+                if (completedOrders.isNotEmpty)
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 80),
+                    sliver: SliverGrid(
+                      gridDelegate:
+                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 220,
+                        childAspectRatio: 0.75,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
+                      ),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final order = completedOrders[index];
+                          return Opacity(
+                            opacity: 0.5,
+                            child: _CompactOrderCard(
+                              order: order,
+                              l10n: l10n,
+                              coverCharge: coverCharge,
+                              onTap: () => _showOrderDetail(context, order),
+                            ),
+                          );
+                        },
+                        childCount: completedOrders.length,
+                      ),
+                    ),
+                  ),
+                // Bottom padding
+                const SliverToBoxAdapter(child: SizedBox(height: 16)),
               ],
             ),
           );
@@ -155,12 +200,165 @@ class OrdersScreen extends ConsumerWidget {
     );
   }
 
-  void _showEditOrderSheet(BuildContext context, OrderModel order) {
+  void _showOrderDetail(BuildContext context, OrderModel order) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (context) => EditOrderSheet(order: order),
+      builder: (context) => OrderDetailSheet(order: order),
     );
+  }
+}
+
+
+/// Card compatta stile "foglietto" per la griglia ordini
+class _CompactOrderCard extends StatelessWidget {
+  final OrderModel order;
+  final AppLocalizations l10n;
+  final double coverCharge;
+  final VoidCallback onTap;
+
+  const _CompactOrderCard({
+    required this.order,
+    required this.l10n,
+    required this.coverCharge,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final statusColor = switch (order.status) {
+      OrderStatus.pending => Colors.orange,
+      OrderStatus.preparing => Colors.blue,
+      OrderStatus.ready => Colors.green,
+      OrderStatus.served => Colors.teal,
+      OrderStatus.paid => Colors.grey,
+      OrderStatus.cancelled => Colors.red,
+    };
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      elevation: 2,
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Header colorato con tavolo/asporto
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              color: statusColor.withOpacity(0.15),
+              child: Row(
+                children: [
+                  Icon(
+                    order.isTakeaway
+                        ? Icons.takeout_dining
+                        : Icons.table_restaurant,
+                    size: 16,
+                    color: statusColor,
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      order.isTakeaway
+                          ? l10n.takeaway
+                          : order.tableName ?? 'T?',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: statusColor,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Text(
+                    DateFormat('HH:mm').format(order.createdAt),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: statusColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Lista piatti compatta
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ...order.items.take(5).map((item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 2),
+                          child: Text(
+                            '${item.quantity}x ${_shortName(item.name)}',
+                            style: const TextStyle(fontSize: 11),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        )),
+                    if (order.items.length > 5)
+                      Text(
+                        '+${order.items.length - 5} altri...',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey.shade600,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            // Footer con totale
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: Colors.grey.shade300, width: 1),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Persone (se tavolo)
+                  if (!order.isTakeaway && order.numberOfPeople != null)
+                    Row(
+                      children: [
+                        Icon(Icons.people,
+                            size: 12, color: Colors.grey.shade600),
+                        const SizedBox(width: 2),
+                        Text(
+                          '${order.numberOfPeople}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    const SizedBox.shrink(),
+                  // Totale
+                  Text(
+                    '€${order.total.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Accorcia il nome rimuovendo il numero iniziale
+  String _shortName(String name) {
+    return name.replaceFirst(RegExp(r'^\d+\.?\s*'), '');
   }
 }

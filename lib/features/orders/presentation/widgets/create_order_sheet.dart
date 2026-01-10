@@ -40,7 +40,9 @@ int? _extractNumber(String name) {
 }
 
 class CreateOrderSheet extends ConsumerStatefulWidget {
-  const CreateOrderSheet({super.key});
+  final TableModel? preselectedTable;
+
+  const CreateOrderSheet({super.key, this.preselectedTable});
 
   @override
   ConsumerState<CreateOrderSheet> createState() => _CreateOrderSheetState();
@@ -60,6 +62,11 @@ class _CreateOrderSheetState extends ConsumerState<CreateOrderSheet>
   void initState() {
     super.initState();
     _tabController = TabController(length: _tabCategories.length, vsync: this);
+    // Pre-seleziona il tavolo se passato
+    if (widget.preselectedTable != null) {
+      _selectedTable = widget.preselectedTable;
+      _orderType = OrderType.table;
+    }
   }
 
   @override
@@ -351,14 +358,11 @@ class _CreateOrderSheetState extends ConsumerState<CreateOrderSheet>
                   return TabBarView(
                     controller: _tabController,
                     children: _tabCategories.map((tabCat) {
-                      // Filtra piatti per questa tab
+                      // Filtra piatti per questa tab - mostra TUTTI inclusi esauriti
                       final items = menuItems.where((item) {
                         if (!item.isAvailable) return false;
                         if (!tabCat.categories.contains(item.category)) return false;
-                        final isUnavailable = item.ingredientKey != null &&
-                            unavailableIngredients.contains(item.ingredientKey);
-                        final isSelected = _selectedItems.containsKey(item.id);
-                        return !isUnavailable || isSelected;
+                        return true;
                       }).toList();
 
                       // Ordina per numero (estrae il numero dal nome)
@@ -531,76 +535,87 @@ class _CompactMenuItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final isSelected = quantity > 0;
     final primaryColor = Theme.of(context).colorScheme.primary;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Material(
-      color: isUnavailable
-          ? Colors.grey.shade200
-          : isSelected
-              ? primaryColor.withOpacity(0.15)
-              : Theme.of(context).colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
+    // Colori per piatti esauriti che funzionano in entrambi i temi
+    final unavailableBgColor = isDark ? Colors.grey.shade800 : Colors.grey.shade200;
+    final unavailableTextColor = isDark ? Colors.grey.shade500 : Colors.grey.shade500;
+    final unavailableNumberBgColor = isDark ? Colors.grey.shade700 : Colors.grey.shade400;
+
+    return Opacity(
+      opacity: isUnavailable ? 0.5 : 1.0,
+      child: Material(
+        color: isUnavailable
+            ? unavailableBgColor
+            : isSelected
+                ? primaryColor.withOpacity(0.15)
+                : Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: isSelected ? Border.all(color: primaryColor, width: 2) : null,
-          ),
-          child: Row(
-            children: [
-              // Numero a sinistra in evidenza
-              if (_extractNumber(item.name) != null)
-                Container(
-                  width: 28,
-                  height: 28,
-                  margin: const EdgeInsets.only(right: 6),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? primaryColor
-                        : isUnavailable
-                            ? Colors.grey.shade400
-                            : primaryColor.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Center(
-                    child: Text(
-                      _extractNumber(item.name)!,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: isSelected || isUnavailable
-                            ? Colors.white
-                            : primaryColor,
+        child: InkWell(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: isSelected ? Border.all(color: primaryColor, width: 2) : null,
+            ),
+            child: Row(
+              children: [
+                // Numero a sinistra in evidenza
+                if (_extractNumber(item.name) != null)
+                  Container(
+                    width: 28,
+                    height: 28,
+                    margin: const EdgeInsets.only(right: 6),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? primaryColor
+                          : isUnavailable
+                              ? unavailableNumberBgColor
+                              : primaryColor.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Center(
+                      child: Text(
+                        _extractNumber(item.name)!,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: isSelected
+                              ? Colors.white
+                              : isUnavailable
+                                  ? (isDark ? Colors.grey.shade400 : Colors.white)
+                                  : primaryColor,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              // Nome e prezzo
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      _extractName(item.name),
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                        color: isUnavailable ? Colors.grey : null,
-                        decoration: isUnavailable ? TextDecoration.lineThrough : null,
+                // Nome e prezzo
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        _extractName(item.name),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                          color: isUnavailable ? unavailableTextColor : null,
+                          decoration:
+                              isUnavailable ? TextDecoration.lineThrough : null,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      '€${item.price.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: isUnavailable ? Colors.grey : primaryColor,
-                        fontWeight: FontWeight.w600,
+                      Text(
+                        '€${item.price.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: isUnavailable ? unavailableTextColor : primaryColor,
+                          fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -627,6 +642,7 @@ class _CompactMenuItem extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 

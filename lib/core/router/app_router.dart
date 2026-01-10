@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/analytics/presentation/screens/analytics_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/role_selection_screen.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
@@ -37,6 +38,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/kitchen',
         builder: (context, state) => const KitchenScreen(),
+      ),
+      // Analytics route - standalone
+      GoRoute(
+        path: '/analytics',
+        builder: (context, state) => const AnalyticsScreen(),
       ),
       ShellRoute(
         builder: (context, state, child) => HomeScreen(child: child),

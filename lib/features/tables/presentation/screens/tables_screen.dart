@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../orders/presentation/providers/orders_provider.dart';
+import '../../../orders/presentation/widgets/create_order_sheet.dart';
 import '../../../orders/presentation/widgets/order_detail_sheet.dart';
 import '../../data/models/table_model.dart';
 import '../providers/tables_provider.dart';
@@ -116,7 +117,7 @@ class TablesScreen extends ConsumerWidget {
 
   void _handleTableTap(BuildContext context, WidgetRef ref, TableModel table,
       AppLocalizations l10n) {
-    // If occupied, show order detail sheet
+    // Tavolo OCCUPATO con ordine → mostra dettaglio ordine
     if (table.status == TableStatus.occupied) {
       final order =
           ref.read(ordersProvider.notifier).getActiveOrderForTable(table.id);
@@ -131,12 +132,23 @@ class TablesScreen extends ConsumerWidget {
       }
     }
 
-    // Otherwise show actions
-    _showTableActions(context, ref, table, l10n);
+    // Tavolo LIBERO → apri direttamente creazione ordine
+    if (table.status == TableStatus.available) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        builder: (context) => CreateOrderSheet(preselectedTable: table),
+      );
+      return;
+    }
+
+    // Tavolo PRENOTATO → mostra opzioni
+    _showReservedTableActions(context, ref, table, l10n);
   }
 
-  void _showTableActions(BuildContext context, WidgetRef ref, TableModel table,
-      AppLocalizations l10n) {
+  void _showReservedTableActions(BuildContext context, WidgetRef ref,
+      TableModel table, AppLocalizations l10n) {
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
@@ -150,94 +162,49 @@ class TablesScreen extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    table.name,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
+                  Text(table.name,
+                      style: Theme.of(context).textTheme.headlineSmall),
                   const SizedBox(width: 8),
                   _StatusBadge(status: table.status, l10n: l10n),
                 ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                '${table.capacity} ${l10n.seats}',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
               if (table.reservedBy != null) ...[
-                const SizedBox(height: 4),
+                const SizedBox(height: 8),
                 Text(
                   '${l10n.reserved}: ${table.reservedBy}',
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.orange,
-                      ),
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: Colors.orange),
                 ),
               ],
               const SizedBox(height: 24),
               // Actions
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                alignment: WrapAlignment.center,
-                children: [
-                  if (table.status != TableStatus.available)
-                    FilledButton.tonal(
-                      onPressed: () {
-                        ref
-                            .read(tablesProvider.notifier)
-                            .updateStatus(table.id, TableStatus.available);
-                        Navigator.pop(context);
-                      },
-                      child: Text(l10n.markAvailable),
-                    ),
-                  if (table.status == TableStatus.available)
-                    FilledButton(
-                      onPressed: () {
-                        ref
-                            .read(tablesProvider.notifier)
-                            .updateStatus(table.id, TableStatus.occupied);
-                        Navigator.pop(context);
-                      },
-                      child: Text(l10n.markOccupied),
-                    ),
-                  if (table.status == TableStatus.available)
-                    FilledButton.tonal(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _showReservationDialog(context, ref, table, l10n);
-                      },
-                      child: Text(l10n.reserve),
-                    ),
-                ],
+              FilledButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    useSafeArea: true,
+                    builder: (context) =>
+                        CreateOrderSheet(preselectedTable: table),
+                  );
+                },
+                icon: const Icon(Icons.receipt_long),
+                label: Text(l10n.newOrder),
               ),
-              const SizedBox(height: 16),
-              // Edit/Delete
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  TextButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _showEditTableDialog(context, ref, table, l10n);
-                    },
-                    icon: const Icon(Icons.edit),
-                    label: Text(l10n.edit),
-                  ),
-                  TextButton.icon(
-                    onPressed: () {
-                      ref.read(tablesProvider.notifier).deleteTable(table.id);
-                      Navigator.pop(context);
-                    },
-                    icon: Icon(Icons.delete,
-                        color: Theme.of(context).colorScheme.error),
-                    label: Text(
-                      l10n.delete,
-                      style:
-                          TextStyle(color: Theme.of(context).colorScheme.error),
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () {
+                  ref
+                      .read(tablesProvider.notifier)
+                      .updateStatus(table.id, TableStatus.available);
+                  Navigator.pop(context);
+                },
+                icon: const Icon(Icons.event_busy),
+                label: Text(l10n.markAvailable),
               ),
             ],
           ),
