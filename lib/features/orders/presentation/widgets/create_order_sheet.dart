@@ -53,10 +53,12 @@ class _CreateOrderSheetState extends ConsumerState<CreateOrderSheet>
   int _numberOfPeople = 2;
   final _notesController = TextEditingController();
   final Map<String, int> _selectedItems = {};
+  final Map<String, String> _itemNotes = {}; // Note per singolo piatto
   bool _isLoading = false;
   OrderType _orderType = OrderType.table;
   TableModel? _selectedTable;
   late TabController _tabController;
+  bool _showTableSelection = true; // Mostra selezione tavolo all'inizio
 
   @override
   void initState() {
@@ -66,6 +68,7 @@ class _CreateOrderSheetState extends ConsumerState<CreateOrderSheet>
     if (widget.preselectedTable != null) {
       _selectedTable = widget.preselectedTable;
       _orderType = OrderType.table;
+      _showTableSelection = false; // Salta selezione se già preselezionato
     }
   }
 
@@ -169,12 +172,15 @@ class _CreateOrderSheetState extends ConsumerState<CreateOrderSheet>
     try {
       final orderItems = _selectedItems.entries.map((entry) {
         final menuItem = menuItems.firstWhere((m) => m.id == entry.key);
+        final note = _itemNotes[entry.key];
         return OrderItem(
           menuItemId: menuItem.id,
           name: menuItem.name,
           nameZh: menuItem.nameZh,
+          category: menuItem.category,
           quantity: entry.value,
           price: menuItem.price,
+          notes: note?.isNotEmpty == true ? note : null,
         );
       }).toList();
 
@@ -274,63 +280,15 @@ class _CreateOrderSheetState extends ConsumerState<CreateOrderSheet>
       maxChildSize: 0.95,
       expand: false,
       builder: (context, scrollController) {
+        // Se deve selezionare tavolo/asporto, mostra schermata dedicata
+        if (_showTableSelection) {
+          return _buildTableSelectionScreen(l10n);
+        }
+        
         return Column(
           children: [
-            // Header compatto
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
-              child: Row(
-                children: [
-                  // Tipo ordine + tavolo/asporto
-                  Expanded(
-                    child: Row(
-                      children: [
-                        // Toggle Tavolo/Asporto compatto
-                        ToggleButtons(
-                          isSelected: [
-                            _orderType == OrderType.table,
-                            _orderType == OrderType.takeaway,
-                          ],
-                          onPressed: (index) {
-                            setState(() {
-                              _orderType = index == 0 ? OrderType.table : OrderType.takeaway;
-                            });
-                          },
-                          borderRadius: BorderRadius.circular(8),
-                          constraints: const BoxConstraints(minHeight: 36, minWidth: 50),
-                          children: const [
-                            Icon(Icons.restaurant, size: 20),
-                            Icon(Icons.takeout_dining, size: 20),
-                          ],
-                        ),
-                        const SizedBox(width: 8),
-                        // Tavolo selector o Asporto label
-                        if (_orderType == OrderType.table)
-                          Expanded(child: _CompactTableSelector(
-                            selectedTable: _selectedTable,
-                            onTableSelected: (t) => setState(() => _selectedTable = t),
-                          ))
-                        else
-                          Text(l10n.takeaway, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        // Persone (solo per tavolo)
-                        if (_orderType == OrderType.table) ...[
-                          const SizedBox(width: 8),
-                          _CompactPeopleSelector(
-                            value: _numberOfPeople,
-                            onChanged: (v) => setState(() => _numberOfPeople = v),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ],
-              ),
-            ),
+            // Header compatto con info tavolo/asporto
+            _buildCompactHeader(l10n),
             // Tab bar per categorie
             TabBar(
               controller: _tabController,
@@ -391,12 +349,14 @@ class _CreateOrderSheetState extends ConsumerState<CreateOrderSheet>
                         itemBuilder: (context, index) {
                           final item = items[index];
                           final qty = _selectedItems[item.id] ?? 0;
+                          final hasNote = _itemNotes[item.id]?.isNotEmpty == true;
                           final isUnavailable = item.ingredientKey != null &&
                               unavailableIngredients.contains(item.ingredientKey);
 
                           return _CompactMenuItem(
                             item: item,
                             quantity: qty,
+                            hasNote: hasNote,
                             isUnavailable: isUnavailable,
                             onTap: isUnavailable
                                 ? null
@@ -404,13 +364,7 @@ class _CreateOrderSheetState extends ConsumerState<CreateOrderSheet>
                                       _selectedItems[item.id] = qty + 1;
                                     }),
                             onLongPress: qty > 0
-                                ? () => setState(() {
-                                      if (qty == 1) {
-                                        _selectedItems.remove(item.id);
-                                      } else {
-                                        _selectedItems[item.id] = qty - 1;
-                                      }
-                                    })
+                                ? () => _showItemOptionsDialog(item, l10n)
                                 : null,
                           );
                         },
@@ -489,6 +443,286 @@ class _CreateOrderSheetState extends ConsumerState<CreateOrderSheet>
     );
   }
 
+  /// Schermata iniziale per selezione tavolo/asporto
+  Widget _buildTableSelectionScreen(AppLocalizations l10n) {
+    final tablesAsync = ref.watch(tablesProvider);
+    
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      child: Column(
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Text(
+                  l10n.newOrder,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          
+          // Scelta Tavolo o Asporto
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Asporto button
+                  Card(
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          _orderType = OrderType.takeaway;
+                          _selectedTable = null;
+                          _showTableSelection = false;
+                        });
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade100,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(Icons.takeout_dining, size: 32, color: Colors.orange.shade700),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    l10n.takeaway,
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Ordine da asporto',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.arrow_forward_ios, size: 16),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Tavoli header
+                  Row(
+                    children: [
+                      Icon(Icons.table_restaurant, color: Theme.of(context).colorScheme.primary),
+                      const SizedBox(width: 8),
+                      Text(
+                        l10n.selectTable,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  // Griglia tavoli
+                  Expanded(
+                    child: tablesAsync.when(
+                      loading: () => const Center(child: CircularProgressIndicator()),
+                      error: (e, _) => Center(child: Text('Error: $e')),
+                      data: (tables) {
+                        final availableTables = tables
+                            .where((t) =>
+                                t.status == TableStatus.available ||
+                                t.status == TableStatus.reserved)
+                            .toList();
+                        
+                        if (availableTables.isEmpty) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.table_restaurant, size: 48, color: Colors.grey.shade400),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Nessun tavolo disponibile',
+                                  style: TextStyle(color: Colors.grey.shade600),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                        
+                        return GridView.builder(
+                          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 100,
+                            childAspectRatio: 1,
+                            crossAxisSpacing: 8,
+                            mainAxisSpacing: 8,
+                          ),
+                          itemCount: availableTables.length,
+                          itemBuilder: (context, index) {
+                            final table = availableTables[index];
+                            final isReserved = table.status == TableStatus.reserved;
+                            
+                            return Card(
+                              clipBehavior: Clip.antiAlias,
+                              color: isReserved 
+                                  ? Colors.amber.shade50 
+                                  : Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+                              child: InkWell(
+                                onTap: () {
+                                  setState(() {
+                                    _orderType = OrderType.table;
+                                    _selectedTable = table;
+                                    _showTableSelection = false;
+                                  });
+                                },
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      table.name,
+                                      style: TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                        color: Theme.of(context).colorScheme.primary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.people, size: 14, color: Colors.grey.shade600),
+                                        const SizedBox(width: 2),
+                                        Text(
+                                          '${table.capacity}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey.shade600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    if (isReserved)
+                                      Container(
+                                        margin: const EdgeInsets.only(top: 4),
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.amber,
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: const Text(
+                                          'Pren.',
+                                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Header compatto dopo selezione tavolo
+  Widget _buildCompactHeader(AppLocalizations l10n) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+      child: Row(
+        children: [
+          // Info tavolo/asporto - cliccabile per cambiare
+          InkWell(
+            onTap: () => setState(() => _showTableSelection = true),
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _orderType == OrderType.takeaway ? Icons.takeout_dining : Icons.table_restaurant,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _orderType == OrderType.takeaway 
+                        ? l10n.takeaway 
+                        : _selectedTable?.name ?? '',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.edit, size: 14, color: Theme.of(context).colorScheme.primary),
+                ],
+              ),
+            ),
+          ),
+          
+          // Persone (solo per tavolo)
+          if (_orderType == OrderType.table) ...[
+            const SizedBox(width: 12),
+            _CompactPeopleSelector(
+              value: _numberOfPeople,
+              onChanged: (v) => setState(() => _numberOfPeople = v),
+            ),
+          ],
+          
+          const Spacer(),
+          IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.close),
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showNotesDialog(AppLocalizations l10n) {
     showDialog(
       context: context,
@@ -512,13 +746,129 @@ class _CreateOrderSheetState extends ConsumerState<CreateOrderSheet>
       ),
     );
   }
+
+  /// Dialog per modificare quantità e note di un singolo piatto
+  void _showItemOptionsDialog(MenuItemModel item, AppLocalizations l10n) {
+    final currentQty = _selectedItems[item.id] ?? 1;
+    final currentNote = _itemNotes[item.id] ?? '';
+    int tempQty = currentQty;
+    final noteController = TextEditingController(text: currentNote);
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  item.name,
+                  style: const TextStyle(fontSize: 16),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Quantità
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    onPressed: tempQty > 0
+                        ? () => setDialogState(() => tempQty--)
+                        : null,
+                    icon: const Icon(Icons.remove_circle_outline),
+                    iconSize: 32,
+                  ),
+                  Container(
+                    width: 50,
+                    alignment: Alignment.center,
+                    child: Text(
+                      '$tempQty',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => setDialogState(() => tempQty++),
+                    icon: const Icon(Icons.add_circle_outline),
+                    iconSize: 32,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // Note per questo piatto
+              TextField(
+                controller: noteController,
+                maxLines: 2,
+                decoration: InputDecoration(
+                  labelText: l10n.notes,
+                  hintText: 'Es: senza cipolla...',
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.note_add),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            // Rimuovi tutto
+            if (currentQty > 0)
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _selectedItems.remove(item.id);
+                    _itemNotes.remove(item.id);
+                  });
+                  Navigator.pop(context);
+                },
+                child: Text(
+                  l10n.remove,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+            const Spacer(),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(l10n.cancel),
+            ),
+            FilledButton(
+              onPressed: () {
+                setState(() {
+                  if (tempQty > 0) {
+                    _selectedItems[item.id] = tempQty;
+                    if (noteController.text.isNotEmpty) {
+                      _itemNotes[item.id] = noteController.text;
+                    } else {
+                      _itemNotes.remove(item.id);
+                    }
+                  } else {
+                    _selectedItems.remove(item.id);
+                    _itemNotes.remove(item.id);
+                  }
+                });
+                Navigator.pop(context);
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 
-/// Piatto compatto in griglia - tap per aggiungere, long press per rimuovere
+/// Piatto compatto in griglia - tap per aggiungere, long press per opzioni
 class _CompactMenuItem extends StatelessWidget {
   final MenuItemModel item;
   final int quantity;
+  final bool hasNote;
   final bool isUnavailable;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
@@ -526,6 +876,7 @@ class _CompactMenuItem extends StatelessWidget {
   const _CompactMenuItem({
     required this.item,
     required this.quantity,
+    this.hasNote = false,
     required this.isUnavailable,
     this.onTap,
     this.onLongPress,
@@ -621,22 +972,36 @@ class _CompactMenuItem extends StatelessWidget {
                   ],
                 ),
               ),
-              // Badge quantità
+              // Badge quantità + indicatore note
               if (isSelected)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: primaryColor,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '$quantity',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (hasNote)
+                      Container(
+                        margin: const EdgeInsets.only(right: 4),
+                        child: Icon(
+                          Icons.note,
+                          size: 14,
+                          color: Colors.orange.shade700,
+                        ),
+                      ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: primaryColor,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '$quantity',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
             ],
           ),

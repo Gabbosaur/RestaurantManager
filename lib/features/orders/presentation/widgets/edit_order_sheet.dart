@@ -47,7 +47,9 @@ class EditOrderSheet extends ConsumerStatefulWidget {
 class _EditOrderSheetState extends ConsumerState<EditOrderSheet>
     with SingleTickerProviderStateMixin {
   final Map<String, int> _selectedItems = {};
+  final Map<String, String> _itemNotes = {}; // Note per singolo piatto
   final _notesController = TextEditingController();
+  String _originalNotes = ''; // Note originali per confronto
   bool _isLoading = false;
   bool _hasChanges = false;
   late TabController _tabController;
@@ -59,12 +61,27 @@ class _EditOrderSheetState extends ConsumerState<EditOrderSheet>
     // Inizializza con gli item esistenti
     for (final item in widget.order.items) {
       _selectedItems[item.menuItemId] = item.quantity;
+      if (item.notes != null && item.notes!.isNotEmpty) {
+        _itemNotes[item.menuItemId] = item.notes!;
+      }
     }
-    _notesController.text = widget.order.notes ?? '';
+    _originalNotes = widget.order.notes ?? '';
+    _notesController.text = _originalNotes;
+    
+    // Listener per tracciare modifiche alle note in tempo reale
+    _notesController.addListener(_checkNotesChanged);
+  }
+
+  void _checkNotesChanged() {
+    final notesChanged = _notesController.text != _originalNotes;
+    if (notesChanged && !_hasChanges) {
+      setState(() => _hasChanges = true);
+    }
   }
 
   @override
   void dispose() {
+    _notesController.removeListener(_checkNotesChanged);
     _notesController.dispose();
     _tabController.dispose();
     super.dispose();
@@ -110,12 +127,15 @@ class _EditOrderSheetState extends ConsumerState<EditOrderSheet>
       final menuItems = ref.read(menuProvider).valueOrNull ?? [];
       final orderItems = _selectedItems.entries.map((entry) {
         final menuItem = menuItems.firstWhere((m) => m.id == entry.key);
+        final note = _itemNotes[entry.key];
         return OrderItem(
           menuItemId: menuItem.id,
           name: menuItem.name,
           nameZh: menuItem.nameZh,
+          category: menuItem.category,
           quantity: entry.value,
           price: menuItem.price,
+          notes: note?.isNotEmpty == true ? note : null,
         );
       }).toList();
 
@@ -127,6 +147,7 @@ class _EditOrderSheetState extends ConsumerState<EditOrderSheet>
             orderItems,
             total,
             widget.order.items, // oldItems per confronto
+            notes: _notesController.text,
           );
 
       if (mounted) Navigator.pop(context);
@@ -232,26 +253,13 @@ class _EditOrderSheetState extends ConsumerState<EditOrderSheet>
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.orange.shade100,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.edit, size: 14, color: Colors.orange.shade700),
-                const SizedBox(width: 4),
-                Text(
-                  l10n.edit,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.orange.shade700,
-                  ),
-                ),
-              ],
+          // Badge "Modifica" - solo indicativo, non cliccabile
+          Text(
+            '✏️ ${l10n.edit}',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade500,
+              fontStyle: FontStyle.italic,
             ),
           ),
           IconButton(
@@ -270,6 +278,9 @@ class _EditOrderSheetState extends ConsumerState<EditOrderSheet>
   }
 
   Widget _buildTabContent(List<MenuItemModel> menuItems, Set<String> unavailableIngredients) {
+    final language = ref.watch(languageProvider);
+    final l10n = AppLocalizations(language);
+    
     return TabBarView(
       controller: _tabController,
       children: _tabCategories.map((tabCat) {
@@ -303,12 +314,14 @@ class _EditOrderSheetState extends ConsumerState<EditOrderSheet>
           itemBuilder: (context, index) {
             final item = items[index];
             final qty = _selectedItems[item.id] ?? 0;
+            final hasNote = _itemNotes[item.id]?.isNotEmpty == true;
             final isUnavailable = item.ingredientKey != null &&
                 unavailableIngredients.contains(item.ingredientKey);
 
             return _CompactMenuItem(
               item: item,
               quantity: qty,
+              hasNote: hasNote,
               isUnavailable: isUnavailable,
               onTap: isUnavailable
                   ? null
@@ -317,14 +330,7 @@ class _EditOrderSheetState extends ConsumerState<EditOrderSheet>
                         _hasChanges = true;
                       }),
               onLongPress: qty > 0
-                  ? () => setState(() {
-                        if (qty == 1) {
-                          _selectedItems.remove(item.id);
-                        } else {
-                          _selectedItems[item.id] = qty - 1;
-                        }
-                        _hasChanges = true;
-                      })
+                  ? () => _showItemOptionsDialog(item, l10n)
                   : null,
             );
           },
@@ -451,12 +457,130 @@ class _EditOrderSheetState extends ConsumerState<EditOrderSheet>
       ),
     );
   }
+
+  /// Dialog per modificare quantità e note di un singolo piatto
+  void _showItemOptionsDialog(MenuItemModel item, AppLocalizations l10n) {
+    final currentQty = _selectedItems[item.id] ?? 1;
+    final currentNote = _itemNotes[item.id] ?? '';
+    int tempQty = currentQty;
+    final noteController = TextEditingController(text: currentNote);
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  item.name,
+                  style: const TextStyle(fontSize: 16),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Quantità
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    onPressed: tempQty > 0
+                        ? () => setDialogState(() => tempQty--)
+                        : null,
+                    icon: const Icon(Icons.remove_circle_outline),
+                    iconSize: 32,
+                  ),
+                  Container(
+                    width: 50,
+                    alignment: Alignment.center,
+                    child: Text(
+                      '$tempQty',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => setDialogState(() => tempQty++),
+                    icon: const Icon(Icons.add_circle_outline),
+                    iconSize: 32,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // Note per questo piatto
+              TextField(
+                controller: noteController,
+                maxLines: 2,
+                decoration: InputDecoration(
+                  labelText: l10n.notes,
+                  hintText: 'Es: senza cipolla...',
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.note_add),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            // Rimuovi tutto
+            if (currentQty > 0)
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _selectedItems.remove(item.id);
+                    _itemNotes.remove(item.id);
+                    _hasChanges = true;
+                  });
+                  Navigator.pop(context);
+                },
+                child: Text(
+                  l10n.remove,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+            const Spacer(),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(l10n.cancel),
+            ),
+            FilledButton(
+              onPressed: () {
+                setState(() {
+                  if (tempQty > 0) {
+                    _selectedItems[item.id] = tempQty;
+                    if (noteController.text.isNotEmpty) {
+                      _itemNotes[item.id] = noteController.text;
+                    } else {
+                      _itemNotes.remove(item.id);
+                    }
+                  } else {
+                    _selectedItems.remove(item.id);
+                    _itemNotes.remove(item.id);
+                  }
+                  _hasChanges = true;
+                });
+                Navigator.pop(context);
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// Piatto compatto (copiato da CreateOrderSheet)
 class _CompactMenuItem extends StatelessWidget {
   final MenuItemModel item;
   final int quantity;
+  final bool hasNote;
   final bool isUnavailable;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
@@ -464,6 +588,7 @@ class _CompactMenuItem extends StatelessWidget {
   const _CompactMenuItem({
     required this.item,
     required this.quantity,
+    this.hasNote = false,
     required this.isUnavailable,
     this.onTap,
     this.onLongPress,
@@ -566,21 +691,35 @@ class _CompactMenuItem extends StatelessWidget {
                   ),
                 ),
                 if (isSelected)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: primaryColor,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      '$quantity',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (hasNote)
+                        Container(
+                          margin: const EdgeInsets.only(right: 4),
+                          child: Icon(
+                            Icons.note,
+                            size: 14,
+                            color: Colors.orange.shade700,
+                          ),
+                        ),
+                      Container(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: primaryColor,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '$quantity',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
               ],
             ),

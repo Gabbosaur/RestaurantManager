@@ -18,12 +18,39 @@ class OrdersNotifier extends AsyncNotifier<List<OrderModel>> {
   }
 
   Future<List<OrderModel>> _fetchOrders() async {
+    // Calcola il giorno lavorativo (dalle 6:00 alle 5:59 del giorno dopo)
+    final now = DateTime.now();
+    final businessDate = now.hour < 6 
+        ? DateTime(now.year, now.month, now.day - 1)
+        : DateTime(now.year, now.month, now.day);
+    
+    // Inizio del giorno lavorativo (6:00 del giorno)
+    final businessDayStart = DateTime(businessDate.year, businessDate.month, businessDate.day, 6);
+    
+    // Carica ordini attivi (non pagati/annullati) + ordini completati del giorno lavorativo
     final response = await SupabaseService.client
         .from('orders')
         .select()
+        .or('status.neq.paid,status.neq.cancelled,created_at.gte.${businessDayStart.toIso8601String()}')
         .order('created_at', ascending: false);
 
-    return (response as List).map((e) => OrderModel.fromJson(e)).toList();
+    final allOrders = (response as List).map((e) => OrderModel.fromJson(e)).toList();
+    
+    // Filtra: ordini attivi OPPURE ordini completati del giorno lavorativo
+    return allOrders.where((order) {
+      final isActive = order.status != OrderStatus.paid && 
+                       order.status != OrderStatus.cancelled;
+      if (isActive) return true;
+      
+      // Per ordini completati, verifica che siano del giorno lavorativo
+      final orderBusinessDate = order.createdAt.hour < 6
+          ? DateTime(order.createdAt.year, order.createdAt.month, order.createdAt.day - 1)
+          : DateTime(order.createdAt.year, order.createdAt.month, order.createdAt.day);
+      
+      return orderBusinessDate.year == businessDate.year &&
+             orderBusinessDate.month == businessDate.month &&
+             orderBusinessDate.day == businessDate.day;
+    }).toList();
   }
 
   Future<void> createOrder(OrderModel order) async {
@@ -58,7 +85,8 @@ class OrdersNotifier extends AsyncNotifier<List<OrderModel>> {
       String orderId,
       List<OrderItem> newItems,
       double total,
-      List<OrderItem> oldItems) async {
+      List<OrderItem> oldItems,
+      {String? notes}) async {
     // Calcola le modifiche confrontando vecchi e nuovi items
     final changes = _calculateChanges(oldItems, newItems);
 
@@ -82,6 +110,7 @@ class OrdersNotifier extends AsyncNotifier<List<OrderModel>> {
       'total': total,
       'is_modified': true,
       'changes': allChanges.map((e) => e.toJson()).toList(),
+      'notes': notes?.isNotEmpty == true ? notes : null,
       'updated_at': DateTime.now().toIso8601String(),
     };
     

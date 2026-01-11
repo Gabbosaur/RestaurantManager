@@ -196,6 +196,7 @@ class _StatusChip extends StatelessWidget {
       OrderStatus.preparing => (Colors.blue, l10n.preparing),
       OrderStatus.ready => (Colors.green, l10n.ready),
       OrderStatus.served => (Colors.grey, l10n.served),
+      OrderStatus.paid => (Colors.grey, l10n.paid),
       OrderStatus.cancelled => (Colors.red, l10n.cancelled),
     };
 

@@ -167,6 +167,7 @@ class OrderItem extends Equatable {
   final String menuItemId;
   final String name;
   final String? nameZh; // nome in cinese per la cucina
+  final String? category; // categoria per separare bevande da piatti
   final int quantity;
   final double price;
   final String? notes;
@@ -175,6 +176,7 @@ class OrderItem extends Equatable {
     required this.menuItemId,
     required this.name,
     this.nameZh,
+    this.category,
     required this.quantity,
     required this.price,
     this.notes,
@@ -183,11 +185,15 @@ class OrderItem extends Equatable {
   /// Ritorna il nome in cinese se disponibile, altrimenti il nome italiano
   String get displayNameZh => nameZh ?? name;
 
+  /// Controlla se è una bevanda
+  bool get isBeverage => category?.startsWith('Bevande') ?? false;
+
   factory OrderItem.fromJson(Map<String, dynamic> json) {
     return OrderItem(
       menuItemId: json['menu_item_id'],
       name: json['name'],
       nameZh: json['name_zh'],
+      category: json['category'],
       quantity: json['quantity'],
       price: (json['price'] ?? 0).toDouble(),
       notes: json['notes'],
@@ -198,13 +204,14 @@ class OrderItem extends Equatable {
         'menu_item_id': menuItemId,
         'name': name,
         'name_zh': nameZh,
+        'category': category,
         'quantity': quantity,
         'price': price,
         'notes': notes,
       };
 
   @override
-  List<Object?> get props => [menuItemId, name, nameZh, quantity, price, notes];
+  List<Object?> get props => [menuItemId, name, nameZh, category, quantity, price, notes];
 }
 
 

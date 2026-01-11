@@ -40,7 +40,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
         if (mounted) {
           if (response.user != null && response.session != null) {
-            context.go('/');
+            context.go('/role');
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -55,7 +55,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           _emailController.text.trim(),
           _passwordController.text,
         );
-        if (mounted) context.go('/');
+        if (mounted) context.go('/role');
       }
     } catch (e) {
       if (mounted) {
@@ -115,78 +115,84 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Icon(
-                    Icons.restaurant_menu,
-                    size: 80,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Xin Xing 新星',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Imperia',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.outline,
-                        ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 48),
-                  TextFormField(
-                    controller: _emailController,
-                    decoration: InputDecoration(
-                      labelText: l10n.email,
-                      prefixIcon: const Icon(Icons.email_outlined),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Icon(
+                      Icons.restaurant_menu,
+                      size: 80,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Email richiesta';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _passwordController,
-                    decoration: InputDecoration(
-                      labelText: l10n.password,
-                      prefixIcon: const Icon(Icons.lock_outlined),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Xin Xing 新星',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                      textAlign: TextAlign.center,
                     ),
-                    obscureText: true,
-                    validator: (value) {
-                      if (value == null || value.length < 6) {
-                        return 'Minimo 6 caratteri';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: _isLoading ? null : () => _submit(l10n),
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(_isSignUp ? l10n.signUp : l10n.signIn),
-                  ),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: () => setState(() => _isSignUp = !_isSignUp),
-                    child: Text(_isSignUp ? l10n.hasAccount : l10n.noAccount),
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    Text(
+                      'Imperia',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.outline,
+                          ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 48),
+                    TextFormField(
+                      controller: _emailController,
+                      decoration: InputDecoration(
+                        labelText: l10n.email,
+                        prefixIcon: const Icon(Icons.email_outlined),
+                      ),
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Email richiesta';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _passwordController,
+                      decoration: InputDecoration(
+                        labelText: l10n.password,
+                        prefixIcon: const Icon(Icons.lock_outlined),
+                      ),
+                      obscureText: true,
+                      validator: (value) {
+                        if (value == null || value.length < 6) {
+                          return 'Minimo 6 caratteri';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : () => _submit(l10n),
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : Text(_isSignUp ? l10n.signUp : l10n.signIn),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextButton(
+                      onPressed: () => setState(() => _isSignUp = !_isSignUp),
+                      child: Text(_isSignUp ? l10n.hasAccount : l10n.noAccount),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

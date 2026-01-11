@@ -55,14 +55,10 @@ class OrderDetailSheet extends ConsumerWidget {
                           controller: scrollController,
                           padding: const EdgeInsets.all(16),
                           children: [
-                            // Items list - tap to mark as served
-                            ...currentOrder.items.map((item) => _buildItemRow(
-                                  context,
-                                  ref,
-                                  item,
-                                  currentOrder,
-                                  l10n,
-                                )),
+                            // Bevande in cima (compatte)
+                            ..._buildBeveragesSection(context, ref, currentOrder, l10n),
+                            // Piatti sotto
+                            ..._buildFoodSection(context, ref, currentOrder, l10n),
                             // Notes
                             if (currentOrder.notes != null && currentOrder.notes!.isNotEmpty) ...[
                               const SizedBox(height: 16),
@@ -475,5 +471,109 @@ class OrderDetailSheet extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// Sezione bevande compatta in cima
+  List<Widget> _buildBeveragesSection(BuildContext context, WidgetRef ref, OrderModel order, AppLocalizations l10n) {
+    final beverages = order.items.where((item) => item.isBeverage).toList();
+    if (beverages.isEmpty) return [];
+
+    final beverageTotal = beverages.fold<double>(0, (sum, item) => sum + (item.price * item.quantity));
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return [
+      Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.grey.shade800 : Colors.blue.shade50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: isDark ? Colors.grey.shade700 : Colors.blue.shade200),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.local_bar, size: 16, color: isDark ? Colors.grey.shade500 : Colors.blue.shade700),
+                const SizedBox(width: 6),
+                Text(
+                  'Bevande',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.grey.shade400 : Colors.blue.shade700,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '€${beverageTotal.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.grey.shade400 : Colors.blue.shade700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              children: beverages.map((item) {
+                final servedQty = order.getServedQuantity(item.menuItemId);
+                final isFullyServed = servedQty >= item.quantity;
+                return InkWell(
+                  onTap: () {
+                    ref.read(ordersProvider.notifier).toggleItemServed(order.id, item.menuItemId);
+                  },
+                  child: Opacity(
+                    opacity: isFullyServed ? 0.5 : 1.0,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isFullyServed)
+                          Icon(Icons.check_circle, size: 14, color: Colors.green.shade600)
+                        else
+                          Text(
+                            '${item.quantity}x',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.grey.shade300 : Colors.blue.shade900,
+                            ),
+                          ),
+                        const SizedBox(width: 3),
+                        Text(
+                          _shortBeverageName(item.name),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.grey.shade300 : Colors.blue.shade900,
+                            decoration: isFullyServed ? TextDecoration.lineThrough : null,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 8),
+      Divider(color: Colors.grey.shade300),
+      const SizedBox(height: 4),
+    ];
+  }
+
+  /// Sezione piatti
+  List<Widget> _buildFoodSection(BuildContext context, WidgetRef ref, OrderModel order, AppLocalizations l10n) {
+    final foodItems = order.items.where((item) => !item.isBeverage).toList();
+    return foodItems.map((item) => _buildItemRow(context, ref, item, order, l10n)).toList();
+  }
+
+  /// Accorcia il nome della bevanda
+  String _shortBeverageName(String name) {
+    return name.replaceFirst(RegExp(r'^\d+\.?\s*'), '');
   }
 }

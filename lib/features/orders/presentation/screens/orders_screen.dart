@@ -8,7 +8,6 @@ import '../../../../core/l10n/language_provider.dart';
 import '../../data/models/order_model.dart';
 import '../providers/orders_provider.dart';
 import '../widgets/create_order_sheet.dart';
-import '../widgets/edit_order_sheet.dart';
 import '../widgets/order_detail_sheet.dart';
 
 class OrdersScreen extends ConsumerWidget {
@@ -281,31 +280,17 @@ class _CompactOrderCard extends StatelessWidget {
                 ],
               ),
             ),
-            // Lista piatti compatta
+            // Lista piatti compatta - bevande in cima, poi piatti
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    ...order.items.take(5).map((item) => Padding(
-                          padding: const EdgeInsets.only(bottom: 2),
-                          child: Text(
-                            '${item.quantity}x ${_shortName(item.name)}',
-                            style: const TextStyle(fontSize: 11),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        )),
-                    if (order.items.length > 5)
-                      Text(
-                        '+${order.items.length - 5} altri...',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.grey.shade600,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
+                    // Bevande in cima (compatte su una riga)
+                    ..._buildBeveragesSection(order),
+                    // Piatti
+                    ..._buildFoodSection(order),
                   ],
                 ),
               ),
@@ -360,5 +345,71 @@ class _CompactOrderCard extends StatelessWidget {
   /// Accorcia il nome rimuovendo il numero iniziale
   String _shortName(String name) {
     return name.replaceFirst(RegExp(r'^\d+\.?\s*'), '');
+  }
+
+  /// Costruisce la sezione bevande (compatta, in cima)
+  List<Widget> _buildBeveragesSection(OrderModel order) {
+    final beverages = order.items.where((item) => item.isBeverage).toList();
+    if (beverages.isEmpty) return [];
+    
+    // Mostra bevande compatte su una riga
+    final beverageText = beverages.map((b) => '${b.quantity}x ${_shortName(b.name)}').join(', ');
+    
+    return [
+      Builder(
+        builder: (context) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          return Row(
+            children: [
+              Icon(Icons.local_bar, size: 10, color: isDark ? Colors.grey.shade500 : Colors.blue.shade400),
+              const SizedBox(width: 3),
+              Expanded(
+                child: Text(
+                  beverageText,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: isDark ? Colors.grey.shade400 : Colors.blue.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+      Divider(height: 8, thickness: 1, color: Colors.grey.shade300),
+    ];
+  }
+
+  /// Costruisce la sezione piatti
+  List<Widget> _buildFoodSection(OrderModel order) {
+    final foodItems = order.items.where((item) => !item.isBeverage).toList();
+    if (foodItems.isEmpty) return [];
+    
+    final displayItems = foodItems.take(4).toList();
+    final remaining = foodItems.length - 4;
+    
+    return [
+      ...displayItems.map((item) => Padding(
+        padding: const EdgeInsets.only(bottom: 2),
+        child: Text(
+          '${item.quantity}x ${_shortName(item.name)}',
+          style: const TextStyle(fontSize: 11),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      )),
+      if (remaining > 0)
+        Text(
+          '+$remaining altri...',
+          style: TextStyle(
+            fontSize: 10,
+            color: Colors.grey.shade600,
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+    ];
   }
 }

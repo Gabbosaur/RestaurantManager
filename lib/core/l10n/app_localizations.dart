@@ -703,6 +703,12 @@ class AppLocalizations {
         AppLanguage.chinese => '移除',
       };
 
+  String get remove => switch (language) {
+        AppLanguage.italian => 'Rimuovi',
+        AppLanguage.english => 'Remove',
+        AppLanguage.chinese => '移除',
+      };
+
   String get proceedAnyway => switch (language) {
         AppLanguage.italian => 'Procedi comunque',
         AppLanguage.english => 'Proceed anyway',
