@@ -73,8 +73,9 @@ class TablesNotifier extends AsyncNotifier<List<TableModel>> {
       'status': TableStatus.occupied.name,
       'current_order_id': orderId,
       'number_of_people': numberOfPeople,
+      // Non cancelliamo reserved_by così sappiamo se era prenotato
+      // in caso di annullamento ordine
       'reserved_at': null,
-      'reserved_by': null,
     }).eq('id', tableId);
 
     ref.invalidateSelf();

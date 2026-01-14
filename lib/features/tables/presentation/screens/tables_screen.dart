@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/l10n/language_provider.dart';
+import '../../../orders/data/models/order_model.dart';
 import '../../../orders/presentation/providers/orders_provider.dart';
 import '../../../orders/presentation/widgets/create_order_sheet.dart';
 import '../../../orders/presentation/widgets/order_detail_sheet.dart';
@@ -97,6 +98,9 @@ class TablesScreen extends ConsumerWidget {
                           l10n: l10n,
                           onTap: () =>
                               _handleTableTap(context, ref, table, l10n),
+                          onLongPress: table.status == TableStatus.available
+                              ? () => _showReservationDialog(context, ref, table, l10n)
+                              : null,
                         );
                       },
                     );
@@ -352,11 +356,13 @@ class _TableCard extends ConsumerWidget {
   final TableModel table;
   final AppLocalizations l10n;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   const _TableCard({
     required this.table,
     required this.l10n,
     required this.onTap,
+    this.onLongPress,
   });
 
   @override
@@ -364,11 +370,18 @@ class _TableCard extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    // Watch orders per reagire ai cambiamenti
+    final ordersAsync = ref.watch(ordersProvider);
+    
     // Get order total if occupied
     double? orderTotal;
     if (table.status == TableStatus.occupied) {
-      final order =
-          ref.watch(ordersProvider.notifier).getActiveOrderForTable(table.id);
+      final orders = ordersAsync.valueOrNull ?? [];
+      final order = orders.where(
+        (o) => o.tableId == table.id && 
+               o.status != OrderStatus.paid && 
+               o.status != OrderStatus.cancelled,
+      ).firstOrNull;
       orderTotal = order?.total;
     }
 
@@ -412,6 +425,7 @@ class _TableCard extends ConsumerWidget {
       ),
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(

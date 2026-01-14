@@ -24,7 +24,7 @@ android {
         applicationId = "com.example.restaurant_app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        minSdk = flutter.minSdkVersion  // Supporta Android 5.0+ (OnePlus One con Android 6.0.1)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

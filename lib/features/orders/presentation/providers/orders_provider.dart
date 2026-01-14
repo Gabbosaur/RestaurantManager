@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../services/supabase_service.dart';
+import '../../../tables/presentation/providers/tables_provider.dart';
 import '../../data/models/order_model.dart';
 
 final ordersProvider =
@@ -288,19 +289,21 @@ class OrdersNotifier extends AsyncNotifier<List<OrderModel>> {
       'updated_at': DateTime.now().toIso8601String(),
     }).eq('id', orderId);
 
-    // Se è un ordine al tavolo, libera il tavolo
+    // Se è un ordine al tavolo, libera il tavolo completamente
     if (order.tableId != null && !order.isTakeaway) {
       await SupabaseService.client.from('tables').update({
         'status': 'available',
         'current_order_id': null,
         'number_of_people': null,
+        'reserved_by': null, // Prenotazione completata
       }).eq('id', order.tableId!);
+      ref.invalidate(tablesProvider); // Refresh UI tavoli
     }
 
     ref.invalidateSelf();
   }
 
-  /// Annulla l'ordine e libera il tavolo
+  /// Annulla l'ordine e ripristina lo stato del tavolo
   Future<void> cancelOrder(String orderId) async {
     final order = state.valueOrNull?.firstWhere(
       (o) => o.id == orderId,
@@ -314,13 +317,26 @@ class OrdersNotifier extends AsyncNotifier<List<OrderModel>> {
       'updated_at': DateTime.now().toIso8601String(),
     }).eq('id', orderId);
 
-    // Se è un ordine al tavolo, libera il tavolo
+    // Se è un ordine al tavolo, ripristina lo stato del tavolo
     if (order.tableId != null && !order.isTakeaway) {
+      // Controlla se il tavolo era prenotato (reserved_by ancora presente)
+      final tableData = await SupabaseService.client
+          .from('tables')
+          .select('reserved_by')
+          .eq('id', order.tableId!)
+          .single();
+      
+      final wasReserved = tableData['reserved_by'] != null;
+      
       await SupabaseService.client.from('tables').update({
-        'status': 'available',
+        'status': wasReserved ? 'reserved' : 'available',
         'current_order_id': null,
         'number_of_people': null,
+        // Se non era prenotato, pulisci anche reserved_by
+        if (!wasReserved) 'reserved_by': null,
       }).eq('id', order.tableId!);
+      
+      ref.invalidate(tablesProvider); // Refresh UI tavoli
     }
 
     ref.invalidateSelf();
