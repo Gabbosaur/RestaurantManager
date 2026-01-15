@@ -56,9 +56,9 @@ class OrderDetailSheet extends ConsumerWidget {
                           padding: const EdgeInsets.all(16),
                           children: [
                             // Bevande in cima (compatte)
-                            ..._buildBeveragesSection(context, ref, currentOrder, l10n),
+                            ..._buildBeveragesSection(context, ref, currentOrder, l10n, language),
                             // Piatti sotto
-                            ..._buildFoodSection(context, ref, currentOrder, l10n),
+                            ..._buildFoodSection(context, ref, currentOrder, l10n, language),
                             // Notes
                             if (currentOrder.notes != null && currentOrder.notes!.isNotEmpty) ...[
                               const SizedBox(height: 16),
@@ -174,7 +174,7 @@ class OrderDetailSheet extends ConsumerWidget {
     );
   }
 
-  Widget _buildItemRow(BuildContext context, WidgetRef ref, OrderItem item, OrderModel currentOrder, AppLocalizations l10n) {
+  Widget _buildItemRow(BuildContext context, WidgetRef ref, OrderItem item, OrderModel currentOrder, AppLocalizations l10n, AppLanguage language) {
     final servedQty = currentOrder.getServedQuantity(item.menuItemId);
     final isFullyServed = servedQty >= item.quantity;
     final hasPartialServed = servedQty > 0 && servedQty < item.quantity;
@@ -236,7 +236,7 @@ class OrderDetailSheet extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      item.name,
+                      _getDisplayName(item, language),
                       style: TextStyle(
                         fontSize: 15,
                         decoration: isFullyServed ? TextDecoration.lineThrough : null,
@@ -473,8 +473,16 @@ class OrderDetailSheet extends ConsumerWidget {
     );
   }
 
+  /// Ottiene il nome da mostrare in base alla lingua
+  String _getDisplayName(OrderItem item, AppLanguage language) {
+    if (language == AppLanguage.chinese && item.nameZh != null && item.nameZh!.isNotEmpty) {
+      return item.nameZh!;
+    }
+    return item.name;
+  }
+
   /// Sezione bevande compatta in cima
-  List<Widget> _buildBeveragesSection(BuildContext context, WidgetRef ref, OrderModel order, AppLocalizations l10n) {
+  List<Widget> _buildBeveragesSection(BuildContext context, WidgetRef ref, OrderModel order, AppLocalizations l10n, AppLanguage language) {
     final beverages = order.items.where((item) => item.isBeverage).toList();
     if (beverages.isEmpty) return [];
 
@@ -544,7 +552,7 @@ class OrderDetailSheet extends ConsumerWidget {
                           ),
                         const SizedBox(width: 3),
                         Text(
-                          _shortBeverageName(item.name),
+                          _getDisplayName(item, language),
                           style: TextStyle(
                             fontSize: 12,
                             color: isDark ? Colors.grey.shade300 : Colors.blue.shade900,
@@ -567,9 +575,9 @@ class OrderDetailSheet extends ConsumerWidget {
   }
 
   /// Sezione piatti
-  List<Widget> _buildFoodSection(BuildContext context, WidgetRef ref, OrderModel order, AppLocalizations l10n) {
+  List<Widget> _buildFoodSection(BuildContext context, WidgetRef ref, OrderModel order, AppLocalizations l10n, AppLanguage language) {
     final foodItems = order.items.where((item) => !item.isBeverage).toList();
-    return foodItems.map((item) => _buildItemRow(context, ref, item, order, l10n)).toList();
+    return foodItems.map((item) => _buildItemRow(context, ref, item, order, l10n, language)).toList();
   }
 
   /// Accorcia il nome della bevanda

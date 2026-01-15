@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/l10n/language_provider.dart';
+import '../../../../core/tutorial/tutorial_service.dart';
+import '../../../../core/tutorial/tutorial_wrapper.dart';
+import '../../../../core/tutorial/tutorials.dart';
 import '../../../inventory/presentation/screens/inventory_screen.dart';
 import '../../../orders/data/models/order_model.dart';
 import '../../../orders/presentation/providers/orders_provider.dart';
@@ -11,6 +14,17 @@ import '../../../orders/presentation/providers/orders_provider.dart';
 class KitchenScreen extends ConsumerWidget {
   const KitchenScreen({super.key});
 
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return TutorialWrapper(
+      tutorialId: TutorialService.kitchen,
+      stepsBuilder: getKitchenTutorial,
+      child: _KitchenScreenContent(),
+    );
+  }
+}
+
+class _KitchenScreenContent extends ConsumerWidget {
   void _showIngredientsSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,

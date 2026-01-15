@@ -4,6 +4,9 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/l10n/language_provider.dart';
+import '../../../../core/tutorial/tutorial_service.dart';
+import '../../../../core/tutorial/tutorial_wrapper.dart';
+import '../../../../core/tutorial/tutorials.dart';
 import '../../../orders/data/models/order_model.dart';
 import '../../../orders/presentation/providers/orders_provider.dart';
 import '../../../orders/presentation/widgets/create_order_sheet.dart';
@@ -14,6 +17,17 @@ import '../providers/tables_provider.dart';
 class TablesScreen extends ConsumerWidget {
   const TablesScreen({super.key});
 
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return TutorialWrapper(
+      tutorialId: TutorialService.salaTables,
+      stepsBuilder: getSalaTablesTutorial,
+      child: _TablesScreenContent(),
+    );
+  }
+}
+
+class _TablesScreenContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tablesAsync = ref.watch(tablesProvider);

@@ -73,12 +73,12 @@ ALTER TABLE tables ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory_items ENABLE ROW LEVEL SECURITY;
 
--- Policies
-CREATE POLICY "Allow authenticated access" ON menu_items FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow authenticated access" ON ingredients FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow authenticated access" ON tables FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow authenticated access" ON orders FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow authenticated access" ON inventory_items FOR ALL TO authenticated USING (true) WITH CHECK (true);
+-- Policies (allow both authenticated and anon access for the app)
+CREATE POLICY "Allow all access" ON menu_items FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all access" ON ingredients FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all access" ON tables FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all access" ON orders FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all access" ON inventory_items FOR ALL USING (true) WITH CHECK (true);
 
 -- Enable realtime
 ALTER PUBLICATION supabase_realtime ADD TABLE orders;
@@ -91,7 +91,7 @@ CREATE TABLE restaurant_settings (
 );
 INSERT INTO restaurant_settings (id, cover_charge) VALUES (1, 1.50);
 ALTER TABLE restaurant_settings ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow authenticated access" ON restaurant_settings FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all access" ON restaurant_settings FOR ALL USING (true) WITH CHECK (true);
 
 -- Ingredienti chiave
 INSERT INTO ingredients (id, name, is_available) VALUES
@@ -270,4 +270,4 @@ CREATE TABLE daily_summaries (
 );
 
 ALTER TABLE daily_summaries ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow authenticated access" ON daily_summaries FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all access" ON daily_summaries FOR ALL USING (true) WITH CHECK (true);

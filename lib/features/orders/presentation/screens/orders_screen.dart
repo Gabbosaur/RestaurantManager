@@ -5,6 +5,9 @@ import 'package:intl/intl.dart';
 import '../../../../core/config/restaurant_settings_provider.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/l10n/language_provider.dart';
+import '../../../../core/tutorial/tutorial_service.dart';
+import '../../../../core/tutorial/tutorial_wrapper.dart';
+import '../../../../core/tutorial/tutorials.dart';
 import '../../data/models/order_model.dart';
 import '../providers/orders_provider.dart';
 import '../widgets/create_order_sheet.dart';
@@ -13,6 +16,17 @@ import '../widgets/order_detail_sheet.dart';
 class OrdersScreen extends ConsumerWidget {
   const OrdersScreen({super.key});
 
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return TutorialWrapper(
+      tutorialId: TutorialService.salaOrders,
+      stepsBuilder: getSalaOrdersTutorial,
+      child: _OrdersScreenContent(),
+    );
+  }
+}
+
+class _OrdersScreenContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ordersAsync = ref.watch(ordersProvider);
@@ -113,6 +127,7 @@ class OrdersScreen extends ConsumerWidget {
                           return _CompactOrderCard(
                             order: order,
                             l10n: l10n,
+                            language: language,
                             coverCharge: coverCharge,
                             onTap: () => _showOrderDetail(context, order),
                           );
@@ -166,6 +181,7 @@ class OrdersScreen extends ConsumerWidget {
                             child: _CompactOrderCard(
                               order: order,
                               l10n: l10n,
+                              language: language,
                               coverCharge: coverCharge,
                               onTap: () => _showOrderDetail(context, order),
                             ),
@@ -214,12 +230,14 @@ class OrdersScreen extends ConsumerWidget {
 class _CompactOrderCard extends StatelessWidget {
   final OrderModel order;
   final AppLocalizations l10n;
+  final AppLanguage language;
   final double coverCharge;
   final VoidCallback onTap;
 
   const _CompactOrderCard({
     required this.order,
     required this.l10n,
+    required this.language,
     required this.coverCharge,
     required this.onTap,
   });
@@ -342,6 +360,14 @@ class _CompactOrderCard extends StatelessWidget {
     );
   }
 
+  /// Ottiene il nome da mostrare in base alla lingua
+  String _getDisplayName(OrderItem item) {
+    if (language == AppLanguage.chinese && item.nameZh != null && item.nameZh!.isNotEmpty) {
+      return item.nameZh!;
+    }
+    return _shortName(item.name);
+  }
+
   /// Accorcia il nome rimuovendo il numero iniziale
   String _shortName(String name) {
     return name.replaceFirst(RegExp(r'^\d+\.?\s*'), '');
@@ -353,7 +379,7 @@ class _CompactOrderCard extends StatelessWidget {
     if (beverages.isEmpty) return [];
     
     // Mostra bevande compatte su una riga
-    final beverageText = beverages.map((b) => '${b.quantity}x ${_shortName(b.name)}').join(', ');
+    final beverageText = beverages.map((b) => '${b.quantity}x ${_getDisplayName(b)}').join(', ');
     
     return [
       Builder(
@@ -395,7 +421,7 @@ class _CompactOrderCard extends StatelessWidget {
       ...displayItems.map((item) => Padding(
         padding: const EdgeInsets.only(bottom: 2),
         child: Text(
-          '${item.quantity}x ${_shortName(item.name)}',
+          '${item.quantity}x ${_getDisplayName(item)}',
           style: const TextStyle(fontSize: 11),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -403,7 +429,7 @@ class _CompactOrderCard extends StatelessWidget {
       )),
       if (remaining > 0)
         Text(
-          '+$remaining altri...',
+          '+$remaining ${l10n.others}...',
           style: TextStyle(
             fontSize: 10,
             color: Colors.grey.shade600,

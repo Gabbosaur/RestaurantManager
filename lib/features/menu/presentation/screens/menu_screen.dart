@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
@@ -6,12 +7,26 @@ import '../../../../core/config/restaurant_settings_provider.dart';
 import '../../../../core/constants/menu_categories.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/l10n/language_provider.dart';
+import '../../../../core/tutorial/tutorial_service.dart';
+import '../../../../core/tutorial/tutorial_wrapper.dart';
+import '../../../../core/tutorial/tutorials.dart';
 import '../../data/models/menu_item_model.dart';
 import '../providers/menu_provider.dart';
 
 class MenuScreen extends ConsumerWidget {
   const MenuScreen({super.key});
 
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return TutorialWrapper(
+      tutorialId: TutorialService.salaMenu,
+      stepsBuilder: getMenuTutorial,
+      child: _MenuScreenContent(),
+    );
+  }
+}
+
+class _MenuScreenContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final menuAsync = ref.watch(menuProvider);
@@ -207,95 +222,112 @@ class MenuScreen extends ConsumerWidget {
     final descController = TextEditingController(text: item?.description);
     final priceController =
         TextEditingController(text: item?.price.toString() ?? '');
-    final categoryController =
-        TextEditingController(text: item?.category ?? 'Altro');
+    String selectedCategory = item?.category ?? 'Altro';
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(item == null ? l10n.newDish : l10n.editDish),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: InputDecoration(labelText: l10n.name),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: nameZhController,
-                decoration: const InputDecoration(
-                  labelText: '中文名 (Nome cinese)',
-                  hintText: 'Per la cucina',
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text(item == null ? l10n.newDish : l10n.editDish),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: InputDecoration(labelText: l10n.name),
                 ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: descController,
-                decoration: InputDecoration(labelText: l10n.description),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: priceController,
-                decoration: InputDecoration(
-                  labelText: l10n.price,
-                  prefixText: '€ ',
+                const SizedBox(height: 8),
+                TextField(
+                  controller: nameZhController,
+                  decoration: const InputDecoration(
+                    labelText: '中文名 (Nome cinese)',
+                    hintText: 'Per la cucina',
+                  ),
                 ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: categoryController,
-                decoration: InputDecoration(labelText: l10n.category),
-              ),
-            ],
+                const SizedBox(height: 8),
+                TextField(
+                  controller: descController,
+                  decoration: InputDecoration(labelText: l10n.description),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: priceController,
+                  decoration: InputDecoration(
+                    labelText: l10n.price,
+                    prefixText: '€ ',
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[\d.,]')),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedCategory,
+                  decoration: InputDecoration(
+                    labelText: l10n.category,
+                    border: const OutlineInputBorder(),
+                  ),
+                  isExpanded: true,
+                  items: menuCategoryOrder.map((cat) => DropdownMenuItem(
+                    value: cat,
+                    child: Text(cat),
+                  )).toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => selectedCategory = value);
+                    }
+                  },
+                ),
+              ],
+            ),
           ),
-        ),
-        actions: [
-          if (item != null)
+          actions: [
+            if (item != null)
+              TextButton(
+                onPressed: () {
+                  ref.read(menuProvider.notifier).deleteMenuItem(item.id);
+                  Navigator.pop(context);
+                },
+                child: Text(
+                  l10n.delete,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
             TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(l10n.cancel),
+            ),
+            FilledButton(
               onPressed: () {
-                ref.read(menuProvider.notifier).deleteMenuItem(item.id);
+                final newItem = MenuItemModel(
+                  id: item?.id ?? const Uuid().v4(),
+                  name: nameController.text,
+                  nameZh: nameZhController.text.isNotEmpty
+                      ? nameZhController.text
+                      : null,
+                  description: descController.text.isNotEmpty
+                      ? descController.text
+                      : null,
+                  price: double.tryParse(priceController.text) ?? 0,
+                  category: selectedCategory,
+                  isAvailable: item?.isAvailable ?? true,
+                  ingredientKey: item?.ingredientKey,
+                  createdAt: item?.createdAt ?? DateTime.now(),
+                );
+
+                if (item == null) {
+                  ref.read(menuProvider.notifier).addMenuItem(newItem);
+                } else {
+                  ref.read(menuProvider.notifier).updateMenuItem(newItem);
+                }
                 Navigator.pop(context);
               },
-              child: Text(
-                l10n.delete,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
+              child: Text(l10n.save),
             ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () {
-              final newItem = MenuItemModel(
-                id: item?.id ?? const Uuid().v4(),
-                name: nameController.text,
-                nameZh: nameZhController.text.isNotEmpty
-                    ? nameZhController.text
-                    : null,
-                description: descController.text.isNotEmpty
-                    ? descController.text
-                    : null,
-                price: double.tryParse(priceController.text) ?? 0,
-                category: categoryController.text,
-                isAvailable: item?.isAvailable ?? true,
-                ingredientKey: item?.ingredientKey,
-                createdAt: item?.createdAt ?? DateTime.now(),
-              );
-
-              if (item == null) {
-                ref.read(menuProvider.notifier).addMenuItem(newItem);
-              } else {
-                ref.read(menuProvider.notifier).updateMenuItem(newItem);
-              }
-              Navigator.pop(context);
-            },
-            child: Text(l10n.save),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

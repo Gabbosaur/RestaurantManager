@@ -214,6 +214,12 @@ class AppLocalizations {
         AppLanguage.chinese => '添加',
       };
 
+  String get others => switch (language) {
+        AppLanguage.italian => 'altri',
+        AppLanguage.english => 'others',
+        AppLanguage.chinese => '其他',
+      };
+
   String get edit => switch (language) {
         AppLanguage.italian => 'Modifica',
         AppLanguage.english => 'Edit',
@@ -468,6 +474,19 @@ class AppLocalizations {
         AppLanguage.italian => 'Chiudi',
         AppLanguage.english => 'Close',
         AppLanguage.chinese => '关闭',
+      };
+
+  // Tutorial
+  String get resetTutorial => switch (language) {
+        AppLanguage.italian => 'Rivedi Tutorial',
+        AppLanguage.english => 'Reset Tutorial',
+        AppLanguage.chinese => '重置教程',
+      };
+
+  String get tutorialReset => switch (language) {
+        AppLanguage.italian => 'Tutorial resettato! Verrà mostrato al prossimo accesso.',
+        AppLanguage.english => 'Tutorial reset! It will show on next access.',
+        AppLanguage.chinese => '教程已重置！下次访问时将显示。',
       };
 
   // Auth
@@ -817,6 +836,12 @@ class AppLocalizations {
         AppLanguage.italian => 'Ordini Asporto',
         AppLanguage.english => 'Takeaway Orders',
         AppLanguage.chinese => '外卖订单',
+      };
+
+  String get revenueTrend => switch (language) {
+        AppLanguage.italian => 'Andamento Incassi',
+        AppLanguage.english => 'Revenue Trend',
+        AppLanguage.chinese => '收入趋势',
       };
 
   String get dailyBreakdown => switch (language) {

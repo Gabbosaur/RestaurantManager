@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,8 +11,26 @@ import 'core/config/supabase_config.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load environment variables
-  await dotenv.load(fileName: '.env');
+  // Legge l'ambiente da --dart-define=ENV=dev|prod
+  // Default: dev in debug mode, prod in release mode
+  const envFromBuild = String.fromEnvironment('ENV');
+  final bool useDev;
+  
+  if (envFromBuild.isNotEmpty) {
+    // Se specificato esplicitamente, usa quello
+    useDev = envFromBuild == 'dev';
+  } else {
+    // Altrimenti, debug=dev, release=prod
+    useDev = kDebugMode;
+  }
+
+  final envFile = useDev ? '.env.dev' : '.env';
+  try {
+    await dotenv.load(fileName: envFile);
+  } catch (_) {
+    // Fallback to .env if .env.dev doesn't exist
+    await dotenv.load(fileName: '.env');
+  }
 
   // Initialize locale data for date formatting
   await initializeDateFormatting('it', null);

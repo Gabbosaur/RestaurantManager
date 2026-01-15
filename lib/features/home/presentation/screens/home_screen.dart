@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/theme_provider.dart';
+import '../../../../core/tutorial/tutorial_service.dart';
 import '../../../analytics/presentation/providers/analytics_provider.dart';
 import '../../../orders/data/models/order_model.dart';
 import '../../../orders/presentation/providers/orders_provider.dart';
@@ -357,6 +358,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     },
                   );
                 }),
+                const SizedBox(height: 20),
+                // Tutorial reset
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    await TutorialService.resetAllTutorials();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(l10n.tutorialReset)),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.replay, size: 18),
+                  label: Text(l10n.resetTutorial),
+                ),
               ],
             ),
             actions: [

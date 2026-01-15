@@ -30,9 +30,11 @@ class IngredientsNotifier extends AsyncNotifier<List<IngredientModel>> {
   }
 
   Future<void> setAllAvailable() async {
+    // Supabase richiede un filtro per update, usiamo neq con valore impossibile
     await SupabaseService.client
         .from('ingredients')
-        .update({'is_available': true});
+        .update({'is_available': true})
+        .neq('id', '');
     ref.invalidateSelf();
   }
 }

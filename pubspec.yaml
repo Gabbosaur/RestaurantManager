@@ -37,6 +37,9 @@ dependencies:
   
   # Excel export
   excel: ^4.0.3
+  
+  # Charts
+  fl_chart: ^0.69.0
 
 dev_dependencies:
   flutter_test:

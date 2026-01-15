@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:excel/excel.dart' as xl;
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -287,6 +288,18 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
           if (_viewMode != ViewMode.day && filteredSummaries.length > 1) ...[
             const SizedBox(height: 24),
             Text(
+              l10n.revenueTrend,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _RevenueChart(
+              summaries: filteredSummaries,
+              viewMode: _viewMode,
+            ),
+            const SizedBox(height: 24),
+            Text(
               l10n.dailyBreakdown,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
@@ -568,6 +581,165 @@ class _StatCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+
+/// Grafico di andamento incassi
+class _RevenueChart extends StatelessWidget {
+  final List<DailySummaryModel> summaries;
+  final ViewMode viewMode;
+
+  const _RevenueChart({
+    required this.summaries,
+    required this.viewMode,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (summaries.isEmpty) return const SizedBox.shrink();
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sortedSummaries = List<DailySummaryModel>.from(summaries)
+      ..sort((a, b) => a.date.compareTo(b.date));
+
+    // Prepara i dati per il grafico
+    final spots = <FlSpot>[];
+    final labels = <int, String>{};
+    
+    for (int i = 0; i < sortedSummaries.length; i++) {
+      final summary = sortedSummaries[i];
+      spots.add(FlSpot(i.toDouble(), summary.totalRevenue));
+      
+      // Label per l'asse X
+      if (viewMode == ViewMode.month) {
+        labels[i] = summary.date.day.toString();
+      } else {
+        labels[i] = DateFormat('MMM', 'it').format(summary.date);
+      }
+    }
+
+    final maxY = spots.map((s) => s.y).reduce((a, b) => a > b ? a : b);
+    final minY = spots.map((s) => s.y).reduce((a, b) => a < b ? a : b);
+    final range = maxY - minY;
+    final chartMaxY = maxY + (range * 0.1);
+    final chartMinY = (minY - (range * 0.1)).clamp(0.0, double.infinity);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: SizedBox(
+          height: 200,
+          child: LineChart(
+            LineChartData(
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: false,
+                horizontalInterval: range > 0 ? range / 4 : 100,
+                getDrawingHorizontalLine: (value) => FlLine(
+                  color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+                  strokeWidth: 1,
+                ),
+              ),
+              titlesData: FlTitlesData(
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 50,
+                    getTitlesWidget: (value, meta) {
+                      return Text(
+                        '€${value.toInt()}',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 30,
+                    interval: viewMode == ViewMode.month 
+                        ? (sortedSummaries.length / 6).ceilToDouble().clamp(1, 10)
+                        : 1,
+                    getTitlesWidget: (value, meta) {
+                      final index = value.toInt();
+                      if (index < 0 || index >= sortedSummaries.length) {
+                        return const SizedBox.shrink();
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          labels[index] ?? '',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              ),
+              borderData: FlBorderData(show: false),
+              minX: 0,
+              maxX: (sortedSummaries.length - 1).toDouble(),
+              minY: chartMinY,
+              maxY: chartMaxY,
+              lineBarsData: [
+                LineChartBarData(
+                  spots: spots,
+                  isCurved: true,
+                  curveSmoothness: 0.3,
+                  color: Colors.green,
+                  barWidth: 3,
+                  isStrokeCapRound: true,
+                  dotData: FlDotData(
+                    show: sortedSummaries.length <= 15,
+                    getDotPainter: (spot, percent, barData, index) {
+                      return FlDotCirclePainter(
+                        radius: 4,
+                        color: Colors.green,
+                        strokeWidth: 2,
+                        strokeColor: Colors.white,
+                      );
+                    },
+                  ),
+                  belowBarData: BarAreaData(
+                    show: true,
+                    color: Colors.green.withOpacity(0.15),
+                  ),
+                ),
+              ],
+              lineTouchData: LineTouchData(
+                touchTooltipData: LineTouchTooltipData(
+                  getTooltipColor: (touchedSpot) => isDark ? Colors.grey.shade800 : Colors.white,
+                  tooltipBorder: BorderSide(color: Colors.grey.shade400),
+                  getTooltipItems: (touchedSpots) {
+                    return touchedSpots.map((spot) {
+                      final index = spot.x.toInt();
+                      if (index < 0 || index >= sortedSummaries.length) return null;
+                      final summary = sortedSummaries[index];
+                      return LineTooltipItem(
+                        '${DateFormat('d MMM', 'it').format(summary.date)}\n€${summary.totalRevenue.toStringAsFixed(2)}',
+                        TextStyle(
+                          color: isDark ? Colors.white : Colors.black,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      );
+                    }).toList();
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
