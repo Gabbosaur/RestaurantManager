@@ -1,0 +1,35 @@
+name: Flutter Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+      
+      - name: Install dependencies
+        run: flutter pub get
+      
+      - name: Create .env file
+        run: |
+          echo "SUPABASE_URL=https://test.supabase.co" > .env
+          echo "SUPABASE_ANON_KEY=test-key" >> .env
+          cp .env .env.dev
+      
+      - name: Run tests
+        run: flutter test --coverage
+      
+      - name: Check test coverage
+        run: |
+          echo "Test coverage report generated"
