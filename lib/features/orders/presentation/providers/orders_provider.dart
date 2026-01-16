@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../services/supabase_service.dart';
 import '../../../tables/presentation/providers/tables_provider.dart';
@@ -8,11 +9,21 @@ final ordersProvider =
     AsyncNotifierProvider<OrdersNotifier, List<OrderModel>>(OrdersNotifier.new);
 
 class OrdersNotifier extends AsyncNotifier<List<OrderModel>> {
+  RealtimeChannel? _subscription;
+
   @override
   Future<List<OrderModel>> build() async {
+    // Chiudi subscription precedente se esiste
+    _subscription?.unsubscribe();
+    
     // Subscribe to real-time updates
-    SupabaseService.subscribeToOrders((payload) {
+    _subscription = SupabaseService.subscribeToOrders((payload) {
       ref.invalidateSelf();
+    });
+
+    // Cleanup quando il provider viene distrutto
+    ref.onDispose(() {
+      _subscription?.unsubscribe();
     });
 
     return _fetchOrders();
@@ -28,30 +39,47 @@ class OrdersNotifier extends AsyncNotifier<List<OrderModel>> {
     // Inizio del giorno lavorativo (6:00 del giorno)
     final businessDayStart = DateTime(businessDate.year, businessDate.month, businessDate.day, 6);
     
-    // Carica ordini attivi (non pagati/annullati) + ordini completati del giorno lavorativo
-    final response = await SupabaseService.client
+    // Query ottimizzata: ordini attivi OR ordini recenti del giorno lavorativo
+    // Usiamo due query separate per evitare problemi con OR complessi
+    final activeResponse = await SupabaseService.client
         .from('orders')
         .select()
-        .or('status.neq.paid,status.neq.cancelled,created_at.gte.${businessDayStart.toIso8601String()}')
+        .not('status', 'in', '(paid,cancelled)')
         .order('created_at', ascending: false);
 
-    final allOrders = (response as List).map((e) => OrderModel.fromJson(e)).toList();
+    final todayResponse = await SupabaseService.client
+        .from('orders')
+        .select()
+        .gte('created_at', businessDayStart.toIso8601String())
+        .order('created_at', ascending: false);
+
+    // Combina e deduplica
+    final Map<String, OrderModel> ordersMap = {};
     
-    // Filtra: ordini attivi OPPURE ordini completati del giorno lavorativo
-    return allOrders.where((order) {
-      final isActive = order.status != OrderStatus.paid && 
-                       order.status != OrderStatus.cancelled;
-      if (isActive) return true;
-      
-      // Per ordini completati, verifica che siano del giorno lavorativo
+    for (final json in activeResponse as List) {
+      final order = OrderModel.fromJson(json);
+      ordersMap[order.id] = order;
+    }
+    
+    for (final json in todayResponse as List) {
+      final order = OrderModel.fromJson(json);
+      // Filtra solo ordini del giorno lavorativo corrente
       final orderBusinessDate = order.createdAt.hour < 6
           ? DateTime(order.createdAt.year, order.createdAt.month, order.createdAt.day - 1)
           : DateTime(order.createdAt.year, order.createdAt.month, order.createdAt.day);
       
-      return orderBusinessDate.year == businessDate.year &&
-             orderBusinessDate.month == businessDate.month &&
-             orderBusinessDate.day == businessDate.day;
-    }).toList();
+      if (orderBusinessDate.year == businessDate.year &&
+          orderBusinessDate.month == businessDate.month &&
+          orderBusinessDate.day == businessDate.day) {
+        ordersMap[order.id] = order;
+      }
+    }
+
+    // Ordina per data decrescente
+    final orders = ordersMap.values.toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    
+    return orders;
   }
 
   Future<void> createOrder(OrderModel order) async {
