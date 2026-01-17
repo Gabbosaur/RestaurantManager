@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
@@ -360,9 +361,12 @@ class _CreateOrderSheetState extends ConsumerState<CreateOrderSheet>
                             isUnavailable: isUnavailable,
                             onTap: isUnavailable
                                 ? null
-                                : () => setState(() {
+                                : () {
+                                    HapticFeedback.lightImpact();
+                                    setState(() {
                                       _selectedItems[item.id] = qty + 1;
-                                    }),
+                                    });
+                                  },
                             onLongPress: qty > 0
                                 ? () => _showItemOptionsDialog(item, l10n)
                                 : null,
@@ -424,7 +428,10 @@ class _CreateOrderSheetState extends ConsumerState<CreateOrderSheet>
                   FilledButton.icon(
                     onPressed: _isLoading || _selectedItems.isEmpty
                         ? null
-                        : () => _createOrder(l10n, coverCharge),
+                        : () {
+                            HapticFeedback.heavyImpact();
+                            _createOrder(l10n, coverCharge);
+                          },
                     icon: _isLoading
                         ? const SizedBox(
                             height: 18,

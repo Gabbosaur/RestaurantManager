@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/config/restaurant_settings_provider.dart';
@@ -356,6 +357,7 @@ class OrderDetailSheet extends ConsumerWidget {
                   height: 48,
                   child: FilledButton.icon(
                     onPressed: () {
+                      HapticFeedback.heavyImpact();
                       ref.read(ordersProvider.notifier).markAsPaid(currentOrder.id);
                       Navigator.pop(context);
                     },
