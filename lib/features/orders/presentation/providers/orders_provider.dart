@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/services/notification_sound_service.dart';
 import '../../../../services/supabase_service.dart';
 import '../../../tables/presentation/providers/tables_provider.dart';
 import '../../data/models/order_model.dart';
@@ -10,6 +11,8 @@ final ordersProvider =
 
 class OrdersNotifier extends AsyncNotifier<List<OrderModel>> {
   RealtimeChannel? _subscription;
+  final _soundService = NotificationSoundService();
+  Set<String> _knownOrderIds = {};
 
   @override
   Future<List<OrderModel>> build() async {
@@ -18,7 +21,7 @@ class OrdersNotifier extends AsyncNotifier<List<OrderModel>> {
     
     // Subscribe to real-time updates
     _subscription = SupabaseService.subscribeToOrders((payload) {
-      ref.invalidateSelf();
+      _handleRealtimeUpdate(payload);
     });
 
     // Cleanup quando il provider viene distrutto
@@ -26,7 +29,38 @@ class OrdersNotifier extends AsyncNotifier<List<OrderModel>> {
       _subscription?.unsubscribe();
     });
 
-    return _fetchOrders();
+    final orders = await _fetchOrders();
+    // Inizializza gli ID conosciuti
+    _knownOrderIds = orders.map((o) => o.id).toSet();
+    return orders;
+  }
+  
+  void _handleRealtimeUpdate(dynamic payload) {
+    final eventType = payload.eventType;
+    
+    // Se è un INSERT (nuovo ordine), riproduci il suono
+    if (eventType == PostgresChangeEvent.insert) {
+      final newRecord = payload.newRecord;
+      final orderId = newRecord['id'] as String?;
+      
+      // Verifica che sia un ordine nuovo (non già conosciuto)
+      if (orderId != null && !_knownOrderIds.contains(orderId)) {
+        _knownOrderIds.add(orderId);
+        // Riproduci suono solo se è un ordine pending (nuovo)
+        if (newRecord['status'] == 'pending') {
+          _soundService.playNewOrderSound();
+        }
+      }
+    }
+    // Se è un UPDATE con is_modified = true, suono leggero
+    else if (eventType == PostgresChangeEvent.update) {
+      final newRecord = payload.newRecord;
+      if (newRecord['is_modified'] == true) {
+        _soundService.playOrderModifiedSound();
+      }
+    }
+    
+    ref.invalidateSelf();
   }
 
   Future<List<OrderModel>> _fetchOrders() async {
@@ -83,8 +117,38 @@ class OrdersNotifier extends AsyncNotifier<List<OrderModel>> {
   }
 
   Future<void> createOrder(OrderModel order) async {
-    await SupabaseService.client.from('orders').insert(order.toJson());
+    var orderToInsert = order;
+    
+    // Se è un ordine takeaway, genera il numero progressivo
+    if (order.isTakeaway) {
+      final takeawayNumber = await _generateTakeawayNumber();
+      orderToInsert = order.copyWith(takeawayNumber: takeawayNumber);
+    }
+    
+    await SupabaseService.client.from('orders').insert(orderToInsert.toJson());
     ref.invalidateSelf();
+  }
+  
+  /// Genera il prossimo numero takeaway del giorno (A1, A2, A3...)
+  Future<String> _generateTakeawayNumber() async {
+    // Calcola il giorno lavorativo (dalle 6:00 alle 5:59 del giorno dopo)
+    final now = DateTime.now();
+    final businessDate = now.hour < 6 
+        ? DateTime(now.year, now.month, now.day - 1)
+        : DateTime(now.year, now.month, now.day);
+    final businessDayStart = DateTime(businessDate.year, businessDate.month, businessDate.day, 6);
+    final businessDayEnd = businessDayStart.add(const Duration(hours: 24));
+    
+    // Conta gli ordini takeaway del giorno lavorativo
+    final response = await SupabaseService.client
+        .from('orders')
+        .select('id')
+        .eq('order_type', 'takeaway')
+        .gte('created_at', businessDayStart.toIso8601String())
+        .lt('created_at', businessDayEnd.toIso8601String());
+    
+    final count = (response as List).length;
+    return 'A${count + 1}';
   }
 
   Future<void> updateStatus(String orderId, OrderStatus status) async {

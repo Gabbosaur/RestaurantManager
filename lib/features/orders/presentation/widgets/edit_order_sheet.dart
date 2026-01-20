@@ -241,7 +241,7 @@ class _EditOrderSheetState extends ConsumerState<EditOrderSheet>
               children: [
                 Text(
                   widget.order.isTakeaway
-                      ? l10n.takeaway
+                      ? widget.order.takeawayNumber ?? l10n.takeaway
                       : '${l10n.table} ${widget.order.tableName ?? ""}',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),

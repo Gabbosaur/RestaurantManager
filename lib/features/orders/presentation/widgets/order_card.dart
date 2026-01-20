@@ -44,7 +44,7 @@ class OrderCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       order.isTakeaway
-                          ? '${l10n.takeaway} #${order.id.substring(0, 6).toUpperCase()}'
+                          ? '${order.takeawayNumber ?? l10n.takeaway} #${order.id.substring(0, 6).toUpperCase()}'
                           : '${l10n.table} ${order.tableName ?? order.tableId ?? "?"} #${order.id.substring(0, 6).toUpperCase()}',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,

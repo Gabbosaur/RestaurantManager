@@ -9,6 +9,7 @@ class OrderModel extends Equatable {
   final String? tableId;
   final String? tableName; // Store table name for display
   final OrderType orderType;
+  final String? takeawayNumber; // Numero progressivo asporto (es. "A1", "A2")
   final int? numberOfPeople;
   final List<OrderItem> items;
   final OrderStatus status;
@@ -25,6 +26,7 @@ class OrderModel extends Equatable {
     this.tableId,
     this.tableName,
     required this.orderType,
+    this.takeawayNumber,
     this.numberOfPeople,
     required this.items,
     required this.status,
@@ -38,6 +40,14 @@ class OrderModel extends Equatable {
   });
 
   bool get isTakeaway => orderType == OrderType.takeaway;
+  
+  /// Ritorna l'identificatore da mostrare (tavolo o numero asporto)
+  String get displayIdentifier {
+    if (isTakeaway) {
+      return takeawayNumber ?? 'Asporto';
+    }
+    return tableName ?? tableId ?? '?';
+  }
 
   /// Ritorna la quantità servita per un piatto
   int getServedQuantity(String menuItemId) => servedQuantities[menuItemId] ?? 0;
@@ -86,6 +96,7 @@ class OrderModel extends Equatable {
       orderType: json['order_type'] == 'takeaway' 
           ? OrderType.takeaway 
           : OrderType.table,
+      takeawayNumber: json['takeaway_number'],
       numberOfPeople: json['number_of_people'],
       items: (json['items'] as List?)
               ?.map((e) => OrderItem.fromJson(e))
@@ -112,6 +123,7 @@ class OrderModel extends Equatable {
         'table_id': tableId,
         'table_name': tableName,
         'order_type': orderType.name,
+        'takeaway_number': takeawayNumber,
         'number_of_people': numberOfPeople,
         'items': items.map((e) => e.toJson()).toList(),
         'status': status.name,
@@ -129,6 +141,7 @@ class OrderModel extends Equatable {
     String? tableId,
     String? tableName,
     OrderType? orderType,
+    String? takeawayNumber,
     int? numberOfPeople,
     List<OrderItem>? items,
     OrderStatus? status,
@@ -145,6 +158,7 @@ class OrderModel extends Equatable {
       tableId: tableId ?? this.tableId,
       tableName: tableName ?? this.tableName,
       orderType: orderType ?? this.orderType,
+      takeawayNumber: takeawayNumber ?? this.takeawayNumber,
       numberOfPeople: numberOfPeople ?? this.numberOfPeople,
       items: items ?? this.items,
       status: status ?? this.status,
@@ -160,7 +174,7 @@ class OrderModel extends Equatable {
 
   @override
   List<Object?> get props =>
-      [id, tableId, tableName, orderType, numberOfPeople, items, status, total, notes, isModified, changes, servedQuantities, createdAt, updatedAt];
+      [id, tableId, tableName, orderType, takeawayNumber, numberOfPeople, items, status, total, notes, isModified, changes, servedQuantities, createdAt, updatedAt];
 }
 
 class OrderItem extends Equatable {

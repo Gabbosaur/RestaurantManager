@@ -488,7 +488,7 @@ class _KitchenOrderCard extends StatelessWidget {
                       Flexible(
                         child: Text(
                           order.isTakeaway
-                              ? l10n.takeaway
+                              ? order.takeawayNumber ?? l10n.takeaway
                               : '${l10n.table} ${order.tableName ?? order.tableId ?? "?"}',
                           style: const TextStyle(
                             fontSize: 20,

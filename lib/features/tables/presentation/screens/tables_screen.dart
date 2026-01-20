@@ -441,7 +441,7 @@ class _TableCard extends ConsumerWidget {
         onTap: onTap,
         onLongPress: onLongPress,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -451,12 +451,43 @@ class _TableCard extends ConsumerWidget {
                 children: [
                   Text(
                     table.name,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: fgColor,
                         ),
                   ),
-                  Icon(icon, color: fgColor, size: 28),
+                  Icon(icon, color: fgColor, size: 24),
+                ],
+              ),
+              const SizedBox(height: 4),
+              // Info row: seats + people (sempre visibile)
+              Row(
+                children: [
+                  Icon(Icons.chair_outlined,
+                      size: 14, color: fgColor.withOpacity(0.7)),
+                  const SizedBox(width: 2),
+                  Text(
+                    '${table.capacity}',
+                    style: TextStyle(
+                      color: fgColor.withOpacity(0.7),
+                      fontSize: 12,
+                    ),
+                  ),
+                  // Show people count if occupied
+                  if (table.status == TableStatus.occupied &&
+                      table.numberOfPeople != null) ...[
+                    const SizedBox(width: 8),
+                    Icon(Icons.people, size: 14, color: fgColor),
+                    const SizedBox(width: 2),
+                    Text(
+                      '${table.numberOfPeople}',
+                      style: TextStyle(
+                        color: fgColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ],
               ),
               const Spacer(),
@@ -475,11 +506,11 @@ class _TableCard extends ConsumerWidget {
                     style: TextStyle(
                       color: Colors.green.shade800,
                       fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                      fontSize: 14,
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
               ],
               // Status text
               Text(
@@ -487,55 +518,24 @@ class _TableCard extends ConsumerWidget {
                 style: TextStyle(
                   color: fgColor,
                   fontWeight: FontWeight.w600,
-                  fontSize: 13,
+                  fontSize: 12,
                 ),
-              ),
-              const SizedBox(height: 4),
-              // Info row
-              Row(
-                children: [
-                  Icon(Icons.chair_outlined,
-                      size: 16, color: fgColor.withOpacity(0.7)),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${table.capacity} ${l10n.seats}',
-                    style: TextStyle(
-                      color: fgColor.withOpacity(0.7),
-                      fontSize: 12,
-                    ),
-                  ),
-                  // Show people count if occupied
-                  if (table.status == TableStatus.occupied &&
-                      table.numberOfPeople != null) ...[
-                    const SizedBox(width: 8),
-                    Icon(Icons.people, size: 16, color: fgColor),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${table.numberOfPeople}',
-                      style: TextStyle(
-                        color: fgColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ],
               ),
               // Reserved by name
               if (table.status == TableStatus.reserved &&
                   table.reservedBy != null) ...[
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Row(
                   children: [
-                    Icon(Icons.person, size: 18, color: fgColor),
-                    const SizedBox(width: 4),
+                    Icon(Icons.person, size: 14, color: fgColor),
+                    const SizedBox(width: 2),
                     Expanded(
                       child: Text(
                         table.reservedBy!,
                         style: TextStyle(
                           color: fgColor,
                           fontWeight: FontWeight.w600,
-                          fontSize: 13,
+                          fontSize: 11,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),

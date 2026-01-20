@@ -278,7 +278,7 @@ class _CompactOrderCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       order.isTakeaway
-                          ? l10n.takeaway
+                          ? order.takeawayNumber ?? l10n.takeaway
                           : order.tableName ?? 'T?',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,

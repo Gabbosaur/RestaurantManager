@@ -117,7 +117,7 @@ class OrderDetailSheet extends ConsumerWidget {
               children: [
                 Text(
                   currentOrder.isTakeaway
-                      ? l10n.takeaway
+                      ? currentOrder.takeawayNumber ?? l10n.takeaway
                       : '${l10n.table} ${currentOrder.tableName ?? ""}',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,

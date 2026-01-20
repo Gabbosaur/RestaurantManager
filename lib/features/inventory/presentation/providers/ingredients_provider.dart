@@ -13,11 +13,15 @@ class IngredientsNotifier extends AsyncNotifier<List<IngredientModel>> {
 
   @override
   Future<List<IngredientModel>> build() async {
+    // Mantieni il provider sempre attivo per ricevere aggiornamenti realtime
+    ref.keepAlive();
+    
     // Chiudi subscription precedente se esiste
     _subscription?.unsubscribe();
     
     // Subscribe to real-time updates
     _subscription = SupabaseService.subscribeToIngredients((payload) {
+      // Forza il refresh dei dati
       ref.invalidateSelf();
     });
 
