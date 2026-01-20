@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../services/supabase_service.dart';
 import '../../data/models/ingredient_model.dart';
@@ -8,8 +9,23 @@ final ingredientsProvider =
         IngredientsNotifier.new);
 
 class IngredientsNotifier extends AsyncNotifier<List<IngredientModel>> {
+  RealtimeChannel? _subscription;
+
   @override
   Future<List<IngredientModel>> build() async {
+    // Chiudi subscription precedente se esiste
+    _subscription?.unsubscribe();
+    
+    // Subscribe to real-time updates
+    _subscription = SupabaseService.subscribeToIngredients((payload) {
+      ref.invalidateSelf();
+    });
+
+    // Cleanup quando il provider viene distrutto
+    ref.onDispose(() {
+      _subscription?.unsubscribe();
+    });
+
     return _fetchIngredients();
   }
 

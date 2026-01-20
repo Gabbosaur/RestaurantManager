@@ -47,4 +47,16 @@ class SupabaseService {
         )
         .subscribe();
   }
+
+  static RealtimeChannel subscribeToIngredients(void Function(dynamic) callback) {
+    return client
+        .channel('ingredients')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'ingredients',
+          callback: (payload) => callback(payload),
+        )
+        .subscribe();
+  }
 }

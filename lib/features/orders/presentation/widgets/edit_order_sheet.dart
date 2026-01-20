@@ -544,7 +544,6 @@ class _EditOrderSheetState extends ConsumerState<EditOrderSheet>
                   style: const TextStyle(color: Colors.red),
                 ),
               ),
-            const Spacer(),
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: Text(l10n.cancel),

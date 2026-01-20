@@ -188,9 +188,10 @@ class _KitchenTabs extends StatelessWidget {
             tabs: [
               Tab(
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(l10n.newOrders),
+                    const Icon(Icons.fiber_new, size: 20),
                     if (newOrders.isNotEmpty) ...[
                       const SizedBox(width: 4),
                       _Badge(count: newOrders.length, color: Colors.orange),
@@ -200,9 +201,10 @@ class _KitchenTabs extends StatelessWidget {
               ),
               Tab(
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(l10n.inPreparation),
+                    const Icon(Icons.soup_kitchen, size: 20),
                     if (preparingOrders.isNotEmpty) ...[
                       const SizedBox(width: 4),
                       _Badge(count: preparingOrders.length, color: Colors.blue),
@@ -212,9 +214,10 @@ class _KitchenTabs extends StatelessWidget {
               ),
               Tab(
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(l10n.readyToServe),
+                    const Icon(Icons.check_circle, size: 20),
                     if (readyOrders.isNotEmpty) ...[
                       const SizedBox(width: 4),
                       _Badge(count: readyOrders.length, color: Colors.green),

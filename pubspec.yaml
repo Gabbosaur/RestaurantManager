@@ -48,6 +48,14 @@ dev_dependencies:
   riverpod_generator: ^2.3.9
   build_runner: ^2.4.8
   mocktail: ^1.0.3
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/xinxing-logo.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/xinxing-logo.png"
 
 flutter:
   uses-material-design: true
