@@ -34,6 +34,35 @@ class _TablesScreenContent extends ConsumerWidget {
     final language = ref.watch(languageProvider);
     final l10n = AppLocalizations(language);
 
+    // Ascolta errori e mostra SnackBar
+    ref.listen<TableError?>(tableErrorProvider, (previous, next) {
+      if (next != null) {
+        final message = switch (next) {
+          TableError.createFailed => l10n.errorCreateTable,
+          TableError.updateFailed => l10n.errorUpdateTable,
+          TableError.deleteFailed => l10n.errorDeleteTable,
+          TableError.reservationFailed => l10n.errorReservation,
+          TableError.occupyFailed => l10n.errorUpdateTable,
+        };
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(child: Text(message)),
+              ],
+            ),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+        // Reset errore
+        ref.read(tableErrorProvider.notifier).state = null;
+      }
+    });
+
     return Scaffold(
       body: Column(
         children: [
@@ -64,7 +93,30 @@ class _TablesScreenContent extends ConsumerWidget {
           Expanded(
             child: tablesAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Center(child: Text('Error: $error')),
+              error: (error, _) => Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.wifi_off, size: 48, color: Colors.grey),
+                    const SizedBox(height: 16),
+                    Text(
+                      l10n.errorLoadTables,
+                      style: const TextStyle(fontSize: 18),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      l10n.checkConnection,
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: () => ref.invalidate(tablesProvider),
+                      icon: const Icon(Icons.refresh),
+                      label: Text(l10n.retry),
+                    ),
+                  ],
+                ),
+              ),
               data: (tables) {
                 if (tables.isEmpty) {
                   return Center(
@@ -113,7 +165,7 @@ class _TablesScreenContent extends ConsumerWidget {
                           onTap: () =>
                               _handleTableTap(context, ref, table, l10n),
                           onLongPress: table.status == TableStatus.available
-                              ? () => _showReservationDialog(context, ref, table, l10n)
+                              ? () => _showTableOptionsDialog(context, ref, table, l10n)
                               : null,
                         );
                       },
@@ -163,6 +215,92 @@ class _TablesScreenContent extends ConsumerWidget {
 
     // Tavolo PRENOTATO → mostra opzioni
     _showReservedTableActions(context, ref, table, l10n);
+  }
+
+  void _showTableOptionsDialog(BuildContext context, WidgetRef ref,
+      TableModel table, AppLocalizations l10n) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(table.name,
+                      style: Theme.of(context).textTheme.headlineSmall),
+                  const SizedBox(width: 8),
+                  _StatusBadge(status: table.status, l10n: l10n),
+                ],
+              ),
+              const SizedBox(height: 24),
+              // Reservation option
+              OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _showReservationDialog(context, ref, table, l10n);
+                },
+                icon: const Icon(Icons.event),
+                label: Text(l10n.reservation),
+              ),
+              const SizedBox(height: 8),
+              // Edit option
+              OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _showEditTableDialog(context, ref, table, l10n);
+                },
+                icon: const Icon(Icons.edit),
+                label: Text(l10n.edit),
+              ),
+              const SizedBox(height: 8),
+              // Delete option
+              OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _showDeleteTableDialog(context, ref, table, l10n);
+                },
+                icon: const Icon(Icons.delete_outline),
+                label: Text(l10n.delete),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteTableDialog(BuildContext context, WidgetRef ref,
+      TableModel table, AppLocalizations l10n) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.delete),
+        content: Text('${l10n.deleteTableConfirm} "${table.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () {
+              ref.read(tablesProvider.notifier).deleteTable(table.id);
+              Navigator.pop(context);
+            },
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: Text(l10n.delete),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showReservedTableActions(BuildContext context, WidgetRef ref,
@@ -441,7 +579,7 @@ class _TableCard extends ConsumerWidget {
         onTap: onTap,
         onLongPress: onLongPress,
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -449,42 +587,47 @@ class _TableCard extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    table.name,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: fgColor,
-                        ),
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        table.name,
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: fgColor,
+                            ),
+                      ),
+                    ),
                   ),
-                  Icon(icon, color: fgColor, size: 24),
+                  Icon(icon, color: fgColor, size: 28),
                 ],
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               // Info row: seats + people (sempre visibile)
               Row(
                 children: [
                   Icon(Icons.chair_outlined,
-                      size: 14, color: fgColor.withOpacity(0.7)),
-                  const SizedBox(width: 2),
+                      size: 18, color: fgColor.withOpacity(0.7)),
+                  const SizedBox(width: 4),
                   Text(
                     '${table.capacity}',
                     style: TextStyle(
                       color: fgColor.withOpacity(0.7),
-                      fontSize: 12,
+                      fontSize: 15,
                     ),
                   ),
                   // Show people count if occupied
                   if (table.status == TableStatus.occupied &&
                       table.numberOfPeople != null) ...[
-                    const SizedBox(width: 8),
-                    Icon(Icons.people, size: 14, color: fgColor),
-                    const SizedBox(width: 2),
+                    const SizedBox(width: 10),
+                    Icon(Icons.people, size: 18, color: fgColor),
+                    const SizedBox(width: 4),
                     Text(
                       '${table.numberOfPeople}',
                       style: TextStyle(
                         color: fgColor,
                         fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                        fontSize: 15,
                       ),
                     ),
                   ],
@@ -494,50 +637,57 @@ class _TableCard extends ConsumerWidget {
               // Order total if occupied
               if (table.status == TableStatus.occupied &&
                   orderTotal != null) ...[
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '€${orderTotal.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      color: Colors.green.shade800,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '€${orderTotal.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        color: Colors.green.shade800,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
               ],
               // Status text
-              Text(
-                statusText,
-                style: TextStyle(
-                  color: fgColor,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  statusText,
+                  style: TextStyle(
+                    color: fgColor,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
                 ),
               ),
               // Reserved by name
               if (table.status == TableStatus.reserved &&
                   table.reservedBy != null) ...[
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Row(
                   children: [
-                    Icon(Icons.person, size: 14, color: fgColor),
-                    const SizedBox(width: 2),
+                    Icon(Icons.person, size: 16, color: fgColor),
+                    const SizedBox(width: 4),
                     Expanded(
                       child: Text(
                         table.reservedBy!,
                         style: TextStyle(
                           color: fgColor,
                           fontWeight: FontWeight.w600,
-                          fontSize: 11,
+                          fontSize: 13,
                         ),
                         overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                       ),
                     ),
                   ],

@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/config/display_settings_provider.dart';
+import '../../../../core/config/text_size_provider.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/l10n/language_provider.dart';
 import '../../../../core/theme/theme_provider.dart';
 import '../../../../core/tutorial/tutorial_service.dart';
+import '../../../../core/utils/bottom_sheet_controller.dart';
 import '../../../analytics/presentation/providers/analytics_provider.dart';
 import '../../../orders/data/models/order_model.dart';
 import '../../../orders/presentation/providers/orders_provider.dart';
@@ -25,6 +28,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _routes = ['/', '/tables', '/menu'];
 
   void _onDestinationSelected(int index) {
+    // Se clicchi sulla stessa tab e c'è un bottom sheet aperto, chiudilo
+    if (_selectedIndex == index) {
+      if (BottomSheetController.instance.hasActiveSheet) {
+        BottomSheetController.instance.close();
+      }
+      return;
+    }
+    
+    // Chiudi bottom sheet e naviga alla nuova tab
+    if (BottomSheetController.instance.hasActiveSheet) {
+      BottomSheetController.instance.close();
+    }
+    
     setState(() => _selectedIndex = index);
     context.go(_routes[index]);
   }
@@ -293,86 +309,141 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         builder: (context, ref, _) {
           final currentTheme = ref.watch(themeProvider);
           final currentLang = ref.watch(languageProvider);
+          final textScale = ref.watch(textScaleProvider);
           
           return AlertDialog(
             title: Text(l10n.settings),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Theme section
-                Text(
-                  l10n.theme,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Text size section
+                  Text(
+                    l10n.textSize,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.text_fields, size: 18),
+                      Expanded(
+                        child: Slider(
+                          value: textScale,
+                          min: TextScaleNotifier.minScale,
+                          max: TextScaleNotifier.maxScale,
+                          divisions: 6,
+                          label: '${(textScale * 100).round()}%',
+                          onChanged: (value) {
+                            ref.read(textScaleProvider.notifier).setScale(value);
+                          },
+                        ),
                       ),
-                ),
-                const SizedBox(height: 8),
-                SegmentedButton<ThemeMode>(
-                  segments: [
-                    ButtonSegment(
-                      value: ThemeMode.light,
-                      icon: const Icon(Icons.light_mode, size: 18),
-                      label: Text(l10n.lightTheme),
+                      const Icon(Icons.text_fields, size: 28),
+                    ],
+                  ),
+                  Center(
+                    child: Text(
+                      l10n.sampleText,
+                      style: TextStyle(fontSize: 14 * textScale),
                     ),
-                    ButtonSegment(
-                      value: ThemeMode.dark,
-                      icon: const Icon(Icons.dark_mode, size: 18),
-                      label: Text(l10n.darkTheme),
-                    ),
-                  ],
-                  selected: {currentTheme == ThemeMode.system 
-                      ? (MediaQuery.of(context).platformBrightness == Brightness.dark 
-                          ? ThemeMode.dark 
-                          : ThemeMode.light)
-                      : currentTheme},
-                  onSelectionChanged: (modes) {
-                    ref.read(themeProvider.notifier).setTheme(modes.first);
-                  },
-                ),
-                const SizedBox(height: 20),
-                // Language section
-                Text(
-                  l10n.languageLabel,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-                const SizedBox(height: 8),
-                ...AppLanguage.values.map((lang) {
-                  final isSelected = currentLang == lang;
-                  final label = switch (lang) {
-                    AppLanguage.italian => '🇮🇹 Italiano',
-                    AppLanguage.english => '🇬🇧 English',
-                    AppLanguage.chinese => '🇨🇳 中文',
-                  };
-                  return ListTile(
+                  ),
+                  const SizedBox(height: 20),
+                  // Hide served items option (most used feature)
+                  Text(
+                    l10n.display,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
-                    title: Text(label),
-                    trailing: isSelected 
-                        ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary) 
-                        : null,
-                    onTap: () {
-                      ref.read(languageProvider.notifier).setLanguage(lang);
+                    title: Text(l10n.hideServedItemsLabel),
+                    subtitle: Text(l10n.hideServedItemsDesc),
+                    value: ref.watch(hideServedItemsProvider),
+                    onChanged: (value) {
+                      ref.read(hideServedItemsProvider.notifier).set(value);
                     },
-                  );
-                }),
-                const SizedBox(height: 20),
-                // Tutorial reset
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    await TutorialService.resetAllTutorials();
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(l10n.tutorialReset)),
-                      );
-                    }
-                  },
-                  icon: const Icon(Icons.replay, size: 18),
-                  label: Text(l10n.resetTutorial),
-                ),
-              ],
+                  ),
+                  const SizedBox(height: 20),
+                  // Theme section
+                  Text(
+                    l10n.theme,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  SegmentedButton<ThemeMode>(
+                    segments: [
+                      ButtonSegment(
+                        value: ThemeMode.light,
+                        icon: const Icon(Icons.light_mode, size: 18),
+                        label: Text(l10n.lightTheme),
+                      ),
+                      ButtonSegment(
+                        value: ThemeMode.dark,
+                        icon: const Icon(Icons.dark_mode, size: 18),
+                        label: Text(l10n.darkTheme),
+                      ),
+                    ],
+                    selected: {currentTheme == ThemeMode.system 
+                        ? (MediaQuery.of(context).platformBrightness == Brightness.dark 
+                            ? ThemeMode.dark 
+                            : ThemeMode.light)
+                        : currentTheme},
+                    onSelectionChanged: (modes) {
+                      ref.read(themeProvider.notifier).setTheme(modes.first);
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  // Language section
+                  Text(
+                    l10n.languageLabel,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...AppLanguage.values.map((lang) {
+                    final isSelected = currentLang == lang;
+                    final label = switch (lang) {
+                      AppLanguage.italian => '🇮🇹 Italiano',
+                      AppLanguage.english => '🇬🇧 English',
+                      AppLanguage.chinese => '🇨🇳 中文',
+                    };
+                    return ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(label),
+                      trailing: isSelected 
+                          ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary) 
+                          : null,
+                      onTap: () {
+                        ref.read(languageProvider.notifier).setLanguage(lang);
+                      },
+                    );
+                  }),
+                  const SizedBox(height: 20),
+                  // Tutorial reset
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      await TutorialService.resetAllTutorials();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(l10n.tutorialReset)),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.replay, size: 18),
+                    label: Text(l10n.resetTutorial),
+                  ),
+                ],
+              ),
             ),
             actions: [
               FilledButton(

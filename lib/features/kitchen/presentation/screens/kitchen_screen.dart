@@ -3,8 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/config/display_settings_provider.dart';
+import '../../../../core/config/text_size_provider.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/l10n/language_provider.dart';
+import '../../../../core/theme/theme_provider.dart';
 import '../../../../core/tutorial/tutorial_service.dart';
 import '../../../../core/tutorial/tutorial_wrapper.dart';
 import '../../../../core/tutorial/tutorials.dart';
@@ -41,6 +44,142 @@ class _KitchenScreenContent extends ConsumerWidget {
     );
   }
 
+  void _showSettingsDialog(BuildContext context, WidgetRef ref, AppLocalizations l10n) {
+    showDialog(
+      context: context,
+      builder: (context) => Consumer(
+        builder: (context, ref, _) {
+          final currentTheme = ref.watch(themeProvider);
+          final currentLang = ref.watch(languageProvider);
+          final textScale = ref.watch(textScaleProvider);
+          final hideBeverages = ref.watch(hideKitchenBeveragesProvider);
+
+          return AlertDialog(
+            title: Text(l10n.settings),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Text size section
+                  Text(
+                    l10n.textSize,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.text_fields, size: 18),
+                      Expanded(
+                        child: Slider(
+                          value: textScale,
+                          min: TextScaleNotifier.minScale,
+                          max: TextScaleNotifier.maxScale,
+                          divisions: 6,
+                          label: '${(textScale * 100).round()}%',
+                          onChanged: (value) {
+                            ref.read(textScaleProvider.notifier).setScale(value);
+                          },
+                        ),
+                      ),
+                      const Icon(Icons.text_fields, size: 28),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  // Beverages visibility
+                  Text(
+                    l10n.display,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(hideBeverages ? l10n.showBeverages : l10n.hideBeverages),
+                    subtitle: Text(l10n.beveragesInOrders),
+                    value: !hideBeverages,
+                    onChanged: (value) {
+                      ref.read(hideKitchenBeveragesProvider.notifier).set(!value);
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  // Theme section
+                  Text(
+                    l10n.theme,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  SegmentedButton<ThemeMode>(
+                    segments: [
+                      ButtonSegment(
+                        value: ThemeMode.light,
+                        icon: const Icon(Icons.light_mode, size: 18),
+                        label: Text(l10n.lightTheme),
+                      ),
+                      ButtonSegment(
+                        value: ThemeMode.dark,
+                        icon: const Icon(Icons.dark_mode, size: 18),
+                        label: Text(l10n.darkTheme),
+                      ),
+                    ],
+                    selected: {currentTheme == ThemeMode.system 
+                        ? (MediaQuery.of(context).platformBrightness == Brightness.dark 
+                            ? ThemeMode.dark 
+                            : ThemeMode.light)
+                        : currentTheme},
+                    onSelectionChanged: (modes) {
+                      ref.read(themeProvider.notifier).setTheme(modes.first);
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  // Language section
+                  Text(
+                    l10n.languageLabel,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...AppLanguage.values.map((lang) {
+                    final isSelected = currentLang == lang;
+                    final label = switch (lang) {
+                      AppLanguage.italian => '🇮🇹 Italiano',
+                      AppLanguage.english => '🇬🇧 English',
+                      AppLanguage.chinese => '🇨🇳 中文',
+                    };
+                    return ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(label),
+                      trailing: isSelected 
+                          ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary) 
+                          : null,
+                      onTap: () {
+                        ref.read(languageProvider.notifier).setLanguage(lang);
+                      },
+                    );
+                  }),
+                ],
+              ),
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(l10n.close),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ordersAsync = ref.watch(ordersProvider);
@@ -48,6 +187,7 @@ class _KitchenScreenContent extends ConsumerWidget {
     final l10n = AppLocalizations(language);
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 800;
+    final hideBeverages = ref.watch(hideKitchenBeveragesProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -68,6 +208,12 @@ class _KitchenScreenContent extends ConsumerWidget {
             icon: const Icon(Icons.inventory_2, size: 28),
             tooltip: l10n.inventory,
             onPressed: () => _showIngredientsSheet(context),
+          ),
+          // Settings button
+          IconButton(
+            icon: const Icon(Icons.settings, size: 28),
+            tooltip: l10n.settings,
+            onPressed: () => _showSettingsDialog(context, ref, l10n),
           ),
           // Exit button
           IconButton(
@@ -96,6 +242,7 @@ class _KitchenScreenContent extends ConsumerWidget {
               readyOrders: readyOrders,
               l10n: l10n,
               ref: ref,
+              hideBeverages: hideBeverages,
             );
           }
 
@@ -116,6 +263,7 @@ class _KitchenScreenContent extends ConsumerWidget {
                       .read(ordersProvider.notifier)
                       .clearChanges(orderId),
                   l10n: l10n,
+                  hideBeverages: hideBeverages,
                 ),
               ),
               const VerticalDivider(width: 1),
@@ -134,6 +282,7 @@ class _KitchenScreenContent extends ConsumerWidget {
                       .read(ordersProvider.notifier)
                       .clearChanges(orderId),
                   l10n: l10n,
+                  hideBeverages: hideBeverages,
                 ),
               ),
               const VerticalDivider(width: 1),
@@ -152,6 +301,7 @@ class _KitchenScreenContent extends ConsumerWidget {
                       .read(ordersProvider.notifier)
                       .clearChanges(orderId),
                   l10n: l10n,
+                  hideBeverages: hideBeverages,
                 ),
               ),
             ],
@@ -169,6 +319,7 @@ class _KitchenTabs extends StatelessWidget {
   final List<OrderModel> readyOrders;
   final AppLocalizations l10n;
   final WidgetRef ref;
+  final bool hideBeverages;
 
   const _KitchenTabs({
     required this.newOrders,
@@ -176,6 +327,7 @@ class _KitchenTabs extends StatelessWidget {
     required this.readyOrders,
     required this.l10n,
     required this.ref,
+    required this.hideBeverages,
   });
 
   @override
@@ -246,6 +398,7 @@ class _KitchenTabs extends StatelessWidget {
                       .clearChanges(orderId),
                   l10n: l10n,
                   showHeader: false,
+                  hideBeverages: hideBeverages,
                 ),
                 _OrderColumn(
                   title: l10n.inPreparation,
@@ -261,6 +414,7 @@ class _KitchenTabs extends StatelessWidget {
                       .clearChanges(orderId),
                   l10n: l10n,
                   showHeader: false,
+                  hideBeverages: hideBeverages,
                 ),
                 _OrderColumn(
                   title: l10n.readyToServe,
@@ -276,6 +430,7 @@ class _KitchenTabs extends StatelessWidget {
                       .clearChanges(orderId),
                   l10n: l10n,
                   showHeader: false,
+                  hideBeverages: hideBeverages,
                 ),
               ],
             ),
@@ -322,6 +477,7 @@ class _OrderColumn extends StatelessWidget {
   final void Function(String orderId)? onDismissChanges;
   final AppLocalizations l10n;
   final bool showHeader;
+  final bool hideBeverages;
 
   const _OrderColumn({
     required this.title,
@@ -333,6 +489,7 @@ class _OrderColumn extends StatelessWidget {
     required this.l10n,
     this.onDismissChanges,
     this.showHeader = true,
+    this.hideBeverages = true,
   });
 
   @override
@@ -401,6 +558,7 @@ class _OrderColumn extends StatelessWidget {
                         onAction: () => onAction(order),
                         l10n: l10n,
                         onDismissChanges: onDismissChanges,
+                        hideBeverages: hideBeverages,
                       );
                     },
                   ),
@@ -418,6 +576,7 @@ class _KitchenOrderCard extends StatelessWidget {
   final VoidCallback onAction;
   final void Function(String orderId)? onDismissChanges;
   final AppLocalizations l10n;
+  final bool hideBeverages;
 
   const _KitchenOrderCard({
     required this.order,
@@ -426,6 +585,7 @@ class _KitchenOrderCard extends StatelessWidget {
     required this.onAction,
     required this.l10n,
     this.onDismissChanges,
+    this.hideBeverages = true,
   });
 
   String _getTimeAgo(DateTime createdAt) {
@@ -437,6 +597,21 @@ class _KitchenOrderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isUrgent = DateTime.now().difference(order.createdAt).inMinutes > 15;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // Colori per asporto adattati al tema
+    final takeawayBgColor = isDark 
+        ? const Color(0xFF3D2E1F) // marrone scuro per dark mode
+        : Colors.orange.shade50;
+    final takeawayBorderColor = isDark
+        ? Colors.orange.shade700
+        : Colors.orange.shade300;
+    final takeawayIconColor = isDark
+        ? Colors.orange.shade300
+        : Colors.orange.shade700;
+    final takeawayTextColor = isDark
+        ? Colors.orange.shade200
+        : Colors.orange.shade800;
     
     // Crea mappa delle modifiche per menuItemId per lookup veloce
     final changesMap = <String, int>{};
@@ -459,11 +634,14 @@ class _KitchenOrderCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       elevation: 3,
+      color: order.isTakeaway ? takeawayBgColor : null,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: isUrgent
             ? const BorderSide(color: Colors.red, width: 3)
-            : BorderSide.none,
+            : order.isTakeaway
+                ? BorderSide(color: takeawayBorderColor, width: 2)
+                : BorderSide.none,
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -477,22 +655,24 @@ class _KitchenOrderCard extends StatelessWidget {
                 Expanded(
                   child: Row(
                     children: [
+                      // Icona per tipo ordine
                       Icon(
                         order.isTakeaway
-                            ? Icons.shopping_bag
+                            ? Icons.takeout_dining
                             : Icons.table_restaurant,
                         size: 28,
-                        color: color,
+                        color: order.isTakeaway ? takeawayIconColor : color,
                       ),
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
                           order.isTakeaway
                               ? order.takeawayNumber ?? l10n.takeaway
-                              : '${l10n.table} ${order.tableName ?? order.tableId ?? "?"}',
-                          style: const TextStyle(
+                              : order.tableName ?? order.tableId ?? "?",
+                          style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
+                            color: order.isTakeaway ? takeawayTextColor : null,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -545,8 +725,9 @@ class _KitchenOrderCard extends StatelessWidget {
             const Divider(height: 16),
             // Separa piatti da bevande - in cucina prima i piatti da preparare
             ..._buildFoodItems(order, changesMap, color, l10n),
-            // Bevande in fondo (meno priorità per la cucina)
-            ..._buildBeverageItems(order, changesMap, l10n),
+            // Bevande in fondo (meno priorità per la cucina) - solo se non nascoste
+            if (!hideBeverages)
+              ..._buildBeverageItems(order, changesMap, l10n),
             // Removed items (piatti completamente rimossi)
             ...removedChanges.map((change) => Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),

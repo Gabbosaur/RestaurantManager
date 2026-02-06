@@ -75,6 +75,13 @@ class OrderModel extends Equatable {
     if (items.isEmpty) return false;
     return items.every((item) => getServedQuantity(item.menuItemId) >= item.quantity);
   }
+  
+  /// Controlla se tutti i PIATTI (escluse bevande) sono stati serviti
+  bool get isFoodFullyServed {
+    final foodItems = items.where((item) => !item.isBeverage).toList();
+    if (foodItems.isEmpty) return true; // Se solo bevande, considera servito
+    return foodItems.every((item) => getServedQuantity(item.menuItemId) >= item.quantity);
+  }
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     // Parse servedQuantities - può essere mappa o lista (retrocompatibilità)

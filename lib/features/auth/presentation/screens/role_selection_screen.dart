@@ -74,20 +74,26 @@ class RoleSelectionScreen extends ConsumerWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _RoleCard(
-                      icon: Icons.storefront,
-                      title: l10n.diningRoom,
-                      description: l10n.diningRoomDesc,
-                      color: Colors.blue,
-                      onTap: () => context.go('/'),
+                    SizedBox(
+                      width: 220,
+                      child: _RoleCard(
+                        icon: Icons.storefront,
+                        title: l10n.diningRoom,
+                        description: l10n.diningRoomDesc,
+                        color: Colors.blue,
+                        onTap: () => context.go('/'),
+                      ),
                     ),
                     const SizedBox(width: 32),
-                    _RoleCard(
-                      icon: Icons.restaurant,
-                      title: l10n.kitchen,
-                      description: l10n.kitchenDesc,
-                      color: Colors.orange,
-                      onTap: () => context.go('/kitchen'),
+                    SizedBox(
+                      width: 220,
+                      child: _RoleCard(
+                        icon: Icons.restaurant,
+                        title: l10n.kitchen,
+                        description: l10n.kitchenDesc,
+                        color: Colors.orange,
+                        onTap: () => context.go('/kitchen'),
+                      ),
                     ),
                   ],
                 ),
@@ -263,8 +269,7 @@ class _RoleCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 200,
+        child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -283,6 +288,7 @@ class _RoleCard extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(

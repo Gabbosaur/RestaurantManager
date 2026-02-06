@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/config/display_settings_provider.dart';
 import '../../../../core/config/restaurant_settings_provider.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/l10n/language_provider.dart';
@@ -34,6 +35,36 @@ class _OrdersScreenContent extends ConsumerWidget {
     final language = ref.watch(languageProvider);
     final l10n = AppLocalizations(language);
     final coverCharge = settingsAsync.valueOrNull?.coverCharge ?? 1.50;
+    final hideServedItems = ref.watch(hideServedItemsProvider);
+
+    // Ascolta errori e mostra SnackBar
+    ref.listen<OrderError?>(orderErrorProvider, (previous, next) {
+      if (next != null) {
+        final message = switch (next) {
+          OrderError.createFailed => l10n.errorCreateOrder,
+          OrderError.deleteFailed => l10n.errorDeleteOrder,
+          OrderError.updateFailed => l10n.errorUpdateOrder,
+          OrderError.paymentFailed => l10n.errorPaymentOrder,
+          OrderError.cancelFailed => l10n.errorCancelOrder,
+        };
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(child: Text(message)),
+              ],
+            ),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+        // Reset errore
+        ref.read(orderErrorProvider.notifier).state = null;
+      }
+    });
 
     return Scaffold(
       body: ordersAsync.when(
@@ -42,9 +73,17 @@ class _OrdersScreenContent extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 48),
+              const Icon(Icons.wifi_off, size: 48, color: Colors.grey),
               const SizedBox(height: 16),
-              Text('Error: $error'),
+              Text(
+                l10n.errorLoadOrders,
+                style: const TextStyle(fontSize: 18),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                l10n.checkConnection,
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () => ref.invalidate(ordersProvider),
@@ -116,10 +155,10 @@ class _OrdersScreenContent extends ConsumerWidget {
                     sliver: SliverGrid(
                       gridDelegate:
                           const SliverGridDelegateWithMaxCrossAxisExtent(
-                        maxCrossAxisExtent: 220,
-                        childAspectRatio: 0.75,
-                        crossAxisSpacing: 8,
-                        mainAxisSpacing: 8,
+                        maxCrossAxisExtent: 280,
+                        childAspectRatio: 0.65,
+                        crossAxisSpacing: 10,
+                        mainAxisSpacing: 10,
                       ),
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
@@ -129,6 +168,7 @@ class _OrdersScreenContent extends ConsumerWidget {
                             l10n: l10n,
                             language: language,
                             coverCharge: coverCharge,
+                            hideServedItems: hideServedItems,
                             onTap: () => _showOrderDetail(context, order),
                           );
                         },
@@ -168,10 +208,10 @@ class _OrdersScreenContent extends ConsumerWidget {
                     sliver: SliverGrid(
                       gridDelegate:
                           const SliverGridDelegateWithMaxCrossAxisExtent(
-                        maxCrossAxisExtent: 220,
-                        childAspectRatio: 0.75,
-                        crossAxisSpacing: 8,
-                        mainAxisSpacing: 8,
+                        maxCrossAxisExtent: 280,
+                        childAspectRatio: 0.65,
+                        crossAxisSpacing: 10,
+                        mainAxisSpacing: 10,
                       ),
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
@@ -183,6 +223,7 @@ class _OrdersScreenContent extends ConsumerWidget {
                               l10n: l10n,
                               language: language,
                               coverCharge: coverCharge,
+                              hideServedItems: hideServedItems,
                               onTap: () => _showOrderDetail(context, order),
                             ),
                           );
@@ -232,6 +273,7 @@ class _CompactOrderCard extends StatelessWidget {
   final AppLocalizations l10n;
   final AppLanguage language;
   final double coverCharge;
+  final bool hideServedItems;
   final VoidCallback onTap;
 
   const _CompactOrderCard({
@@ -239,6 +281,7 @@ class _CompactOrderCard extends StatelessWidget {
     required this.l10n,
     required this.language,
     required this.coverCharge,
+    this.hideServedItems = false,
     required this.onTap,
   });
 
@@ -263,7 +306,7 @@ class _CompactOrderCard extends StatelessWidget {
           children: [
             // Header colorato con tavolo/asporto
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               color: statusColor.withOpacity(0.15),
               child: Row(
                 children: [
@@ -271,10 +314,10 @@ class _CompactOrderCard extends StatelessWidget {
                     order.isTakeaway
                         ? Icons.takeout_dining
                         : Icons.table_restaurant,
-                    size: 16,
+                    size: 18,
                     color: statusColor,
                   ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       order.isTakeaway
@@ -282,7 +325,7 @@ class _CompactOrderCard extends StatelessWidget {
                           : order.tableName ?? 'T?',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                        fontSize: 15,
                         color: statusColor,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -291,7 +334,7 @@ class _CompactOrderCard extends StatelessWidget {
                   Text(
                     DateFormat('HH:mm').format(order.createdAt),
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 13,
                       color: statusColor,
                     ),
                   ),
@@ -301,7 +344,7 @@ class _CompactOrderCard extends StatelessWidget {
             // Lista piatti compatta - bevande in cima, poi piatti
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -315,7 +358,7 @@ class _CompactOrderCard extends StatelessWidget {
             ),
             // Footer con totale
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
                 border: Border(
                   top: BorderSide(color: Colors.grey.shade300, width: 1),
@@ -329,12 +372,12 @@ class _CompactOrderCard extends StatelessWidget {
                     Row(
                       children: [
                         Icon(Icons.people,
-                            size: 12, color: Colors.grey.shade600),
-                        const SizedBox(width: 2),
+                            size: 14, color: Colors.grey.shade600),
+                        const SizedBox(width: 3),
                         Text(
                           '${order.numberOfPeople}',
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 13,
                             color: Colors.grey.shade600,
                           ),
                         ),
@@ -343,12 +386,17 @@ class _CompactOrderCard extends StatelessWidget {
                   else
                     const SizedBox.shrink(),
                   // Totale
-                  Text(
-                    '€${order.total.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        '€${order.total.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -387,13 +435,13 @@ class _CompactOrderCard extends StatelessWidget {
           final isDark = Theme.of(context).brightness == Brightness.dark;
           return Row(
             children: [
-              Icon(Icons.local_bar, size: 10, color: isDark ? Colors.grey.shade500 : Colors.blue.shade400),
-              const SizedBox(width: 3),
+              Icon(Icons.local_bar, size: 12, color: isDark ? Colors.grey.shade500 : Colors.blue.shade400),
+              const SizedBox(width: 4),
               Expanded(
                 child: Text(
                   beverageText,
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 12,
                     color: isDark ? Colors.grey.shade400 : Colors.blue.shade700,
                     fontWeight: FontWeight.w500,
                   ),
@@ -405,33 +453,77 @@ class _CompactOrderCard extends StatelessWidget {
           );
         },
       ),
-      Divider(height: 8, thickness: 1, color: Colors.grey.shade300),
+      Divider(height: 10, thickness: 1, color: Colors.grey.shade300),
     ];
   }
 
   /// Costruisce la sezione piatti
   List<Widget> _buildFoodSection(OrderModel order) {
-    final foodItems = order.items.where((item) => !item.isBeverage).toList();
-    if (foodItems.isEmpty) return [];
+    var foodItems = order.items.where((item) => !item.isBeverage).toList();
     
-    final displayItems = foodItems.take(4).toList();
-    final remaining = foodItems.length - 4;
+    // Filtra i piatti già serviti se l'opzione è attiva
+    if (hideServedItems) {
+      foodItems = foodItems.where((item) {
+        final servedQty = order.getServedQuantity(item.menuItemId);
+        return servedQty < item.quantity; // Mostra solo se non completamente servito
+      }).toList();
+    }
+    
+    if (foodItems.isEmpty) {
+      if (hideServedItems) {
+        return [
+          Text(
+            '✓ ${l10n.allServed}',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.green.shade600,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ];
+      }
+      return [];
+    }
+    
+    final displayItems = foodItems.take(6).toList();
+    final remaining = foodItems.length - 6;
     
     return [
-      ...displayItems.map((item) => Padding(
-        padding: const EdgeInsets.only(bottom: 2),
-        child: Text(
-          '${item.quantity}x ${_getDisplayName(item)}',
-          style: const TextStyle(fontSize: 11),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      )),
+      ...displayItems.map((item) {
+        final servedQty = order.getServedQuantity(item.menuItemId);
+        final isFullyServed = servedQty >= item.quantity;
+        final remainingQty = item.quantity - servedQty;
+        
+        // Se hideServedItems è attivo, mostra solo la quantità rimanente
+        final displayQty = hideServedItems ? remainingQty : item.quantity;
+        
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 3),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${displayQty}x ${_getDisplayName(item)}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    decoration: isFullyServed && !hideServedItems ? TextDecoration.lineThrough : null,
+                    color: isFullyServed && !hideServedItems ? Colors.grey : null,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (isFullyServed && !hideServedItems)
+                Icon(Icons.check, size: 14, color: Colors.green.shade600),
+            ],
+          ),
+        );
+      }),
       if (remaining > 0)
         Text(
           '+$remaining ${l10n.others}...',
           style: TextStyle(
-            fontSize: 10,
+            fontSize: 12,
             color: Colors.grey.shade600,
             fontStyle: FontStyle.italic,
           ),

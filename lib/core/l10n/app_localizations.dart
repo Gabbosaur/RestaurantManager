@@ -917,4 +917,137 @@ class AppLocalizations {
         AppLanguage.english => 'Confirm',
         AppLanguage.chinese => '确认',
       };
+
+  String get allServed => switch (language) {
+        AppLanguage.italian => 'Tutti serviti',
+        AppLanguage.english => 'All served',
+        AppLanguage.chinese => '全部上齐',
+      };
+
+  String get deleteTableConfirm => switch (language) {
+        AppLanguage.italian => 'Vuoi eliminare il tavolo',
+        AppLanguage.english => 'Do you want to delete table',
+        AppLanguage.chinese => '确定要删除餐桌',
+      };
+
+  // Error messages
+  String get errorCreateOrder => switch (language) {
+        AppLanguage.italian => 'Impossibile creare l\'ordine. Riprova.',
+        AppLanguage.english => 'Unable to create order. Please try again.',
+        AppLanguage.chinese => '无法创建订单，请重试。',
+      };
+
+  String get errorDeleteOrder => switch (language) {
+        AppLanguage.italian => 'Impossibile eliminare l\'ordine. Riprova.',
+        AppLanguage.english => 'Unable to delete order. Please try again.',
+        AppLanguage.chinese => '无法删除订单，请重试。',
+      };
+
+  String get errorUpdateOrder => switch (language) {
+        AppLanguage.italian => 'Impossibile modificare l\'ordine. Riprova.',
+        AppLanguage.english => 'Unable to update order. Please try again.',
+        AppLanguage.chinese => '无法修改订单，请重试。',
+      };
+
+  String get errorPaymentOrder => switch (language) {
+        AppLanguage.italian => 'Impossibile segnare come pagato. Riprova.',
+        AppLanguage.english => 'Unable to mark as paid. Please try again.',
+        AppLanguage.chinese => '无法标记为已付款，请重试。',
+      };
+
+  String get errorCancelOrder => switch (language) {
+        AppLanguage.italian => 'Impossibile annullare l\'ordine. Riprova.',
+        AppLanguage.english => 'Unable to cancel order. Please try again.',
+        AppLanguage.chinese => '无法取消订单，请重试。',
+      };
+
+  String get errorCreateTable => switch (language) {
+        AppLanguage.italian => 'Impossibile creare il tavolo. Riprova.',
+        AppLanguage.english => 'Unable to create table. Please try again.',
+        AppLanguage.chinese => '无法创建餐桌，请重试。',
+      };
+
+  String get errorUpdateTable => switch (language) {
+        AppLanguage.italian => 'Impossibile modificare il tavolo. Riprova.',
+        AppLanguage.english => 'Unable to update table. Please try again.',
+        AppLanguage.chinese => '无法修改餐桌，请重试。',
+      };
+
+  String get errorDeleteTable => switch (language) {
+        AppLanguage.italian => 'Impossibile eliminare il tavolo. Riprova.',
+        AppLanguage.english => 'Unable to delete table. Please try again.',
+        AppLanguage.chinese => '无法删除餐桌，请重试。',
+      };
+
+  String get errorReservation => switch (language) {
+        AppLanguage.italian => 'Impossibile prenotare il tavolo. Riprova.',
+        AppLanguage.english => 'Unable to reserve table. Please try again.',
+        AppLanguage.chinese => '无法预订餐桌，请重试。',
+      };
+
+  String get errorLoadOrders => switch (language) {
+        AppLanguage.italian => 'Impossibile caricare gli ordini',
+        AppLanguage.english => 'Unable to load orders',
+        AppLanguage.chinese => '无法加载订单',
+      };
+
+  String get errorLoadTables => switch (language) {
+        AppLanguage.italian => 'Impossibile caricare i tavoli',
+        AppLanguage.english => 'Unable to load tables',
+        AppLanguage.chinese => '无法加载餐桌',
+      };
+
+  String get checkConnection => switch (language) {
+        AppLanguage.italian => 'Controlla la connessione internet',
+        AppLanguage.english => 'Check your internet connection',
+        AppLanguage.chinese => '请检查网络连接',
+      };
+
+  String get showBeverages => switch (language) {
+        AppLanguage.italian => 'Mostra bevande',
+        AppLanguage.english => 'Show beverages',
+        AppLanguage.chinese => '显示饮料',
+      };
+
+  String get hideBeverages => switch (language) {
+        AppLanguage.italian => 'Nascondi bevande',
+        AppLanguage.english => 'Hide beverages',
+        AppLanguage.chinese => '隐藏饮料',
+      };
+
+  String get textSize => switch (language) {
+        AppLanguage.italian => 'Dimensione testo',
+        AppLanguage.english => 'Text size',
+        AppLanguage.chinese => '文字大小',
+      };
+
+  String get display => switch (language) {
+        AppLanguage.italian => 'Visualizzazione',
+        AppLanguage.english => 'Display',
+        AppLanguage.chinese => '显示',
+      };
+
+  String get beveragesInOrders => switch (language) {
+        AppLanguage.italian => 'Le bevande negli ordini',
+        AppLanguage.english => 'Beverages in orders',
+        AppLanguage.chinese => '订单中的饮料',
+      };
+
+  String get hideServedItemsLabel => switch (language) {
+        AppLanguage.italian => 'Nascondi piatti serviti',
+        AppLanguage.english => 'Hide served items',
+        AppLanguage.chinese => '隐藏已上菜品',
+      };
+
+  String get hideServedItemsDesc => switch (language) {
+        AppLanguage.italian => 'Nella lista ordini mostra solo i piatti da servire',
+        AppLanguage.english => 'Show only items to be served in order list',
+        AppLanguage.chinese => '订单列表中只显示待上菜品',
+      };
+
+  String get sampleText => switch (language) {
+        AppLanguage.italian => 'Esempio testo',
+        AppLanguage.english => 'Sample text',
+        AppLanguage.chinese => '示例文字',
+      };
 }

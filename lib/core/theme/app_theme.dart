@@ -11,6 +11,9 @@ class AppTheme {
           secondary: _secondaryColor,
           brightness: Brightness.light,
         ),
+        // Riduce effetti splash/highlight che possono causare flash
+        splashFactory: NoSplash.splashFactory,
+        highlightColor: Colors.transparent,
         appBarTheme: const AppBarTheme(
           centerTitle: true,
           elevation: 0,
@@ -44,6 +47,9 @@ class AppTheme {
           secondary: _secondaryColor,
           brightness: Brightness.dark,
         ),
+        // Riduce effetti splash/highlight che possono causare flash
+        splashFactory: NoSplash.splashFactory,
+        highlightColor: Colors.transparent,
         appBarTheme: const AppBarTheme(
           centerTitle: true,
           elevation: 0,

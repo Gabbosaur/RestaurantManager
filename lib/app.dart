@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/config/text_size_provider.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
@@ -46,6 +47,7 @@ class _RestaurantAppState extends ConsumerState<RestaurantApp> with WidgetsBindi
   Widget build(BuildContext context) {
     final router = ref.watch(appRouterProvider);
     final themeMode = ref.watch(themeProvider);
+    final textScale = ref.watch(textScaleProvider);
     
     // Inizializza il provider ingredienti per attivare la subscription realtime
     ref.watch(ingredientsProvider);
@@ -58,16 +60,24 @@ class _RestaurantAppState extends ConsumerState<RestaurantApp> with WidgetsBindi
       themeMode: themeMode,
       routerConfig: router,
       builder: (context, child) {
+        // Applica la scala del testo
+        Widget result = MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(textScale),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+        
         // Mostra banner DEV quando si usa ambiente dev
         if (isDevEnvironment) {
           return Banner(
             message: 'DEV',
             location: BannerLocation.topEnd,
             color: Colors.orange,
-            child: child ?? const SizedBox.shrink(),
+            child: result,
           );
         }
-        return child ?? const SizedBox.shrink();
+        return result;
       },
     );
   }

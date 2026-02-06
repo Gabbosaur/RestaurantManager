@@ -304,11 +304,11 @@ class _EditOrderSheetState extends ConsumerState<EditOrderSheet>
 
         return GridView.builder(
           padding: const EdgeInsets.all(8),
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 180,
-            childAspectRatio: 1.8,
-            crossAxisSpacing: 6,
-            mainAxisSpacing: 6,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 2.4,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
           ),
           itemCount: items.length,
           itemBuilder: (context, index) {
@@ -599,12 +599,8 @@ class _CompactMenuItem extends StatelessWidget {
     final primaryColor = Theme.of(context).colorScheme.primary;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Colori per piatti esauriti che funzionano in entrambi i temi
-    final unavailableBgColor =
-        isDark ? Colors.grey.shade800 : Colors.grey.shade200;
-    final unavailableTextColor = Colors.grey.shade500;
-    final unavailableNumberBgColor =
-        isDark ? Colors.grey.shade700 : Colors.grey.shade400;
+    final unavailableBgColor = isDark ? Colors.grey.shade800 : Colors.grey.shade200;
+    final unavailableTextColor = isDark ? Colors.grey.shade500 : Colors.grey.shade500;
 
     return Opacity(
       opacity: isUnavailable ? 0.5 : 1.0,
@@ -614,109 +610,99 @@ class _CompactMenuItem extends StatelessWidget {
             : isSelected
                 ? primaryColor.withOpacity(0.15)
                 : Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: InkWell(
           onTap: onTap,
           onLongPress: onLongPress,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              border:
-                  isSelected ? Border.all(color: primaryColor, width: 2) : null,
+              borderRadius: BorderRadius.circular(10),
+              border: isSelected ? Border.all(color: primaryColor, width: 2) : null,
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (_extractNumber(item.name) != null)
-                  Container(
-                    width: 28,
-                    height: 28,
-                    margin: const EdgeInsets.only(right: 6),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? primaryColor
-                          : isUnavailable
-                              ? unavailableNumberBgColor
-                              : primaryColor.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Center(
-                      child: Text(
-                        _extractNumber(item.name)!,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: isSelected
-                              ? Colors.white
-                              : isUnavailable
-                                  ? (isDark
-                                      ? Colors.grey.shade400
-                                      : Colors.white)
-                                  : primaryColor,
+                // Riga superiore: numero + quantità
+                Row(
+                  children: [
+                    // Numero piatto
+                    if (_extractNumber(item.name) != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isSelected ? primaryColor : primaryColor.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
                         ),
-                      ),
-                    ),
-                  ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        _extractName(item.name),
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight:
-                              isSelected ? FontWeight.bold : FontWeight.w500,
-                          color: isUnavailable ? unavailableTextColor : null,
-                          decoration: isUnavailable
-                              ? TextDecoration.lineThrough
-                              : null,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(
-                        '€${item.price.toStringAsFixed(2)}',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color:
-                              isUnavailable ? unavailableTextColor : primaryColor,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (isSelected)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (hasNote)
-                        Container(
-                          margin: const EdgeInsets.only(right: 4),
-                          child: Icon(
-                            Icons.note,
-                            size: 14,
-                            color: Colors.orange.shade700,
+                        child: Text(
+                          _extractNumber(item.name)!,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: isSelected ? Colors.white : primaryColor,
                           ),
                         ),
+                      ),
+                    const Spacer(),
+                    // Prezzo
+                    Text(
+                      '€${item.price.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isUnavailable ? unavailableTextColor : primaryColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    // Badge quantità
+                    if (isSelected) ...[
+                      const SizedBox(width: 6),
                       Container(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
                           color: primaryColor,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
                           '$quantity',
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 11,
+                            fontSize: 13,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 6),
+                // Nome piatto - occupa tutto lo spazio rimanente
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      _extractName(item.name),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        color: isUnavailable ? unavailableTextColor : null,
+                        decoration: isUnavailable ? TextDecoration.lineThrough : null,
+                        height: 1.2,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                // Indicatore note
+                if (hasNote)
+                  Row(
+                    children: [
+                      Icon(Icons.note, size: 12, color: Colors.orange.shade700),
+                      const SizedBox(width: 2),
+                      Text(
+                        'nota',
+                        style: TextStyle(fontSize: 10, color: Colors.orange.shade700),
                       ),
                     ],
                   ),

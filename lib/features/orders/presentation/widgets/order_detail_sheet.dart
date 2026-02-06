@@ -5,17 +5,38 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/config/restaurant_settings_provider.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/l10n/language_provider.dart';
+import '../../../../core/utils/bottom_sheet_controller.dart';
 import '../../data/models/order_model.dart';
 import '../providers/orders_provider.dart';
 import 'edit_order_sheet.dart';
 
-class OrderDetailSheet extends ConsumerWidget {
+class OrderDetailSheet extends ConsumerStatefulWidget {
   final OrderModel order;
 
   const OrderDetailSheet({super.key, required this.order});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<OrderDetailSheet> createState() => _OrderDetailSheetState();
+}
+
+class _OrderDetailSheetState extends ConsumerState<OrderDetailSheet> {
+  @override
+  void initState() {
+    super.initState();
+    // Registra questo bottom sheet per poterlo chiudere da fuori
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      BottomSheetController.instance.register(context);
+    });
+  }
+
+  @override
+  void dispose() {
+    BottomSheetController.instance.unregister();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final language = ref.watch(languageProvider);
     final l10n = AppLocalizations(language);
     final settingsAsync = ref.watch(restaurantSettingsProvider);
@@ -24,9 +45,9 @@ class OrderDetailSheet extends ConsumerWidget {
     // Watch orders to get real-time updates for served items
     final ordersAsync = ref.watch(ordersProvider);
     final currentOrder = ordersAsync.valueOrNull?.firstWhere(
-      (o) => o.id == order.id,
-      orElse: () => order,
-    ) ?? order;
+      (o) => o.id == widget.order.id,
+      orElse: () => widget.order,
+    ) ?? widget.order;
 
     final itemsTotal = currentOrder.items.fold<double>(
       0,
@@ -36,9 +57,9 @@ class OrderDetailSheet extends ConsumerWidget {
     final grandTotal = itemsTotal + coverTotal;
 
     return DraggableScrollableSheet(
-      initialChildSize: 0.9,
+      initialChildSize: 0.98,
       minChildSize: 0.5,
-      maxChildSize: 0.95,
+      maxChildSize: 0.98,
       expand: false,
       builder: (context, scrollController) {
         return Container(
@@ -112,8 +133,7 @@ class OrderDetailSheet extends ConsumerWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
                 Text(
                   currentOrder.isTakeaway
@@ -124,14 +144,31 @@ class OrderDetailSheet extends ConsumerWidget {
                     fontSize: 20,
                   ),
                 ),
-                if (!currentOrder.isTakeaway && currentOrder.numberOfPeople != null)
-                  Text(
-                    '${currentOrder.numberOfPeople} ${l10n.people}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade600,
+                if (!currentOrder.isTakeaway && currentOrder.numberOfPeople != null) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.people, size: 14, color: Colors.grey.shade700),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${currentOrder.numberOfPeople}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade700,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                ],
               ],
             ),
           ),
@@ -181,108 +218,150 @@ class OrderDetailSheet extends ConsumerWidget {
     final hasPartialServed = servedQty > 0 && servedQty < item.quantity;
     final remaining = item.quantity - servedQty;
     
-    return InkWell(
-      onTap: () {
-        ref.read(ordersProvider.notifier).toggleItemServed(
-              currentOrder.id,
-              item.menuItemId,
-            );
-      },
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-        child: Opacity(
-          opacity: isFullyServed ? 0.5 : 1.0,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Served indicator / Quantity badge
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: isFullyServed
-                      ? Colors.green
-                      : hasPartialServed
-                          ? Colors.orange
-                          : Theme.of(context).colorScheme.primary.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Center(
-                  child: isFullyServed
-                      ? const Icon(Icons.check, color: Colors.white, size: 18)
-                      : hasPartialServed
-                          ? Text(
-                              '$remaining',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                                fontSize: 14,
-                              ),
-                            )
-                          : Text(
-                              '${item.quantity}x',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).colorScheme.primary,
-                                fontSize: 13,
-                              ),
-                            ),
+    final content = Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+      child: Opacity(
+        opacity: isFullyServed ? 0.5 : 1.0,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Quantity badge (sempre visibile)
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: isFullyServed
+                    ? Colors.green
+                    : hasPartialServed
+                        ? Colors.orange
+                        : Theme.of(context).colorScheme.primary.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Center(
+                child: Text(
+                  hasPartialServed ? '$remaining' : '${item.quantity}x',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: isFullyServed || hasPartialServed
+                        ? Colors.white
+                        : Theme.of(context).colorScheme.primary,
+                    fontSize: 14,
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
-              // Item name with served count
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _getDisplayName(item, language),
-                      style: TextStyle(
-                        fontSize: 15,
-                        decoration: isFullyServed ? TextDecoration.lineThrough : null,
-                      ),
-                    ),
-                    if (hasPartialServed)
-                      Text(
-                        l10n.servedCount(servedQty, item.quantity),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.orange.shade700,
-                          fontWeight: FontWeight.w500,
+            ),
+            const SizedBox(width: 12),
+            // Item name with check icon if served
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          _getDisplayName(item, language),
+                          style: TextStyle(
+                            fontSize: 15,
+                            decoration: isFullyServed ? TextDecoration.lineThrough : null,
+                          ),
                         ),
                       ),
-                  ],
-                ),
+                      if (isFullyServed) ...[
+                        const SizedBox(width: 6),
+                        Icon(Icons.check_circle, color: Colors.green, size: 18),
+                      ],
+                    ],
+                  ),
+                  if (hasPartialServed)
+                    Text(
+                      l10n.servedCount(servedQty, item.quantity),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.orange.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                ],
               ),
-              // Price
-              Text(
-                '€${(item.price * item.quantity).toStringAsFixed(2)}',
-                style: TextStyle(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 15,
-                  decoration: isFullyServed ? TextDecoration.lineThrough : null,
-                ),
+            ),
+            // Price
+            Text(
+              '€${(item.price * item.quantity).toStringAsFixed(2)}',
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                fontSize: 15,
+                decoration: isFullyServed ? TextDecoration.lineThrough : null,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
+      ),
+    );
+
+    // Swipe per segnare servito (come fare una riga sulla carta)
+    return Dismissible(
+      key: ValueKey('item_${item.menuItemId}'),
+      direction: DismissDirection.startToEnd,
+      dismissThresholds: const {DismissDirection.startToEnd: 0.4},
+      confirmDismiss: (direction) async {
+        HapticFeedback.mediumImpact();
+        if (item.quantity > 1) {
+          ref.read(ordersProvider.notifier).setItemFullyServed(
+            currentOrder.id,
+            item.menuItemId,
+            item.quantity,
+            !isFullyServed,
+          );
+        } else {
+          ref.read(ordersProvider.notifier).toggleItemServed(
+            currentOrder.id,
+            item.menuItemId,
+          );
+        }
+        return false;
+      },
+      background: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 16),
+        decoration: BoxDecoration(
+          color: isFullyServed ? Colors.orange.shade100 : Colors.green.shade100,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(
+          isFullyServed ? Icons.undo : Icons.check_circle,
+          color: isFullyServed ? Colors.orange.shade700 : Colors.green.shade700,
+        ),
+      ),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          ref.read(ordersProvider.notifier).toggleItemServed(
+                currentOrder.id,
+                item.menuItemId,
+              );
+        },
+        child: content,
       ),
     );
   }
 
   Widget _buildFooter(BuildContext context, AppLocalizations l10n,
       double itemsTotal, double coverTotal, double coverCharge, double grandTotal, OrderModel currentOrder) {
-    final canEdit = currentOrder.status != OrderStatus.served &&
-        currentOrder.status != OrderStatus.paid &&
+    // Permetti modifica anche quando served (cliente può ordinare altro)
+    final canEdit = currentOrder.status != OrderStatus.paid &&
         currentOrder.status != OrderStatus.cancelled;
-    final canMarkPaid = currentOrder.status == OrderStatus.served;
+    // Mostra bottone pagamento se tutti i PIATTI sono serviti (bevande opzionali)
+    final canMarkPaid = currentOrder.status == OrderStatus.served || 
+        (currentOrder.isFoodFullyServed && 
+         currentOrder.status != OrderStatus.paid && 
+         currentOrder.status != OrderStatus.cancelled);
     final canCancel = currentOrder.status != OrderStatus.paid &&
         currentOrder.status != OrderStatus.cancelled;
 
     return Consumer(
       builder: (context, ref, _) => Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
           boxShadow: [
@@ -296,97 +375,124 @@ class OrderDetailSheet extends ConsumerWidget {
         child: SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // Totals section
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Piatti',
-                    style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                  ),
-                  Text(
-                    '€${itemsTotal.toStringAsFixed(2)}',
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                ],
-              ),
-              if (!currentOrder.isTakeaway && (currentOrder.numberOfPeople ?? 0) > 0) ...[
-                const SizedBox(height: 2),
+              // Dettaglio scontrino solo quando pronto per pagare
+              if (canMarkPaid) ...[
+                // Subtotale piatti - allineato a destra
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      '${l10n.coverCharge} (${currentOrder.numberOfPeople}×€${coverCharge.toStringAsFixed(2)})',
+                      'Piatti',
                       style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
                     ),
                     Text(
-                      '€${coverTotal.toStringAsFixed(2)}',
-                      style: const TextStyle(fontSize: 13),
+                      '€${itemsTotal.toStringAsFixed(2)}',
+                      style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+                // Coperto - allineato a destra (solo per tavolo)
+                if (!currentOrder.isTakeaway && (currentOrder.numberOfPeople ?? 0) > 0)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '${l10n.coverCharge} (${currentOrder.numberOfPeople} × €${coverCharge.toStringAsFixed(2)})',
+                        style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                      ),
+                      Text(
+                        '€${coverTotal.toStringAsFixed(2)}',
+                        style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                      ),
+                    ],
+                  ),
+                const Divider(height: 12),
+                // Totale grande - allineato a destra
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      l10n.total,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      '€${grandTotal.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                // Formato compatto quando non pronto per pagare
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: 'Piatti €${itemsTotal.toStringAsFixed(2)}',
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                            ),
+                            if (!currentOrder.isTakeaway && (currentOrder.numberOfPeople ?? 0) > 0)
+                              TextSpan(
+                                text: ' + ${l10n.coverCharge} €${coverTotal.toStringAsFixed(2)}',
+                                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '€${grandTotal.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
                   ],
                 ),
               ],
-              const Divider(height: 12),
+              const SizedBox(height: 10),
+              // Buttons - compact row
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    l10n.total,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    '€${grandTotal.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              // Buttons
-              if (canMarkPaid) ...[
-                // Show big "Mark as Paid" button when order is completed
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: FilledButton.icon(
-                    onPressed: () {
-                      HapticFeedback.heavyImpact();
-                      ref.read(ordersProvider.notifier).markAsPaid(currentOrder.id);
-                      Navigator.pop(context);
-                    },
-                    icon: const Icon(Icons.payments),
-                    label: Text(l10n.markAsPaid),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.green,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    // Cancel button
+                  // Cancel button (if allowed)
+                  if (canCancel)
                     IconButton(
                       onPressed: () => _showCancelDialog(context, ref, l10n, currentOrder),
-                      icon: const Icon(Icons.cancel_outlined),
+                      icon: const Icon(Icons.cancel_outlined, size: 22),
                       color: Colors.red,
                       tooltip: l10n.cancelOrder,
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
                     ),
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: Text(l10n.close),
+                  const SizedBox(width: 8),
+                  // Close button
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
                       ),
+                      child: Text(l10n.close),
                     ),
-                    const SizedBox(width: 12),
+                  ),
+                  const SizedBox(width: 8),
+                  // Edit button (sempre visibile se canEdit)
+                  if (canEdit)
                     Expanded(
-                      child: OutlinedButton.icon(
+                      child: FilledButton.icon(
                         onPressed: () {
                           Navigator.pop(context);
                           showModalBottomSheet(
@@ -398,48 +504,33 @@ class OrderDetailSheet extends ConsumerWidget {
                         },
                         icon: const Icon(Icons.edit, size: 18),
                         label: Text(l10n.edit),
-                      ),
-                    ),
-                  ],
-                ),
-              ] else ...[
-                Row(
-                  children: [
-                    // Cancel button (if allowed)
-                    if (canCancel)
-                      IconButton(
-                        onPressed: () => _showCancelDialog(context, ref, l10n, currentOrder),
-                        icon: const Icon(Icons.cancel_outlined),
-                        color: Colors.red,
-                        tooltip: l10n.cancelOrder,
-                      ),
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: Text(l10n.close),
-                      ),
-                    ),
-                    if (canEdit) ...[
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            showModalBottomSheet(
-                              context: context,
-                              isScrollControlled: true,
-                              useSafeArea: true,
-                              builder: (context) => EditOrderSheet(order: currentOrder),
-                            );
-                          },
-                          icon: const Icon(Icons.edit),
-                          label: Text(l10n.edit),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
                         ),
                       ),
-                    ],
+                    ),
+                  // Pay button (quando tutti i piatti sono serviti)
+                  if (canMarkPaid) ...[
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: canEdit ? 1 : 2,
+                      child: FilledButton.icon(
+                        onPressed: () {
+                          HapticFeedback.heavyImpact();
+                          ref.read(ordersProvider.notifier).markAsPaid(currentOrder.id);
+                          Navigator.pop(context);
+                        },
+                        icon: const Icon(Icons.payments, size: 18),
+                        label: Text(l10n.markAsPaid),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                        ),
+                      ),
+                    ),
                   ],
-                ),
-              ],
+                ],
+              ),
             ],
           ),
         ),
@@ -534,24 +625,27 @@ class OrderDetailSheet extends ConsumerWidget {
                 final isFullyServed = servedQty >= item.quantity;
                 return InkWell(
                   onTap: () {
-                    ref.read(ordersProvider.notifier).toggleItemServed(order.id, item.menuItemId);
+                    // Un click segna/desegna tutte le bevande dello stesso tipo
+                    ref.read(ordersProvider.notifier).setItemFullyServed(
+                      order.id, 
+                      item.menuItemId, 
+                      item.quantity,
+                      !isFullyServed,
+                    );
                   },
                   child: Opacity(
                     opacity: isFullyServed ? 0.5 : 1.0,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (isFullyServed)
-                          Icon(Icons.check_circle, size: 14, color: Colors.green.shade600)
-                        else
-                          Text(
-                            '${item.quantity}x',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.grey.shade300 : Colors.blue.shade900,
-                            ),
+                        Text(
+                          '${item.quantity}x',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.grey.shade300 : Colors.blue.shade900,
                           ),
+                        ),
                         const SizedBox(width: 3),
                         Text(
                           _getDisplayName(item, language),
@@ -561,6 +655,10 @@ class OrderDetailSheet extends ConsumerWidget {
                             decoration: isFullyServed ? TextDecoration.lineThrough : null,
                           ),
                         ),
+                        if (isFullyServed) ...[
+                          const SizedBox(width: 3),
+                          Icon(Icons.check_circle, size: 14, color: Colors.green.shade600),
+                        ],
                       ],
                     ),
                   ),
