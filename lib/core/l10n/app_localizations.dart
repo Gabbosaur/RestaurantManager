@@ -1050,4 +1050,133 @@ class AppLocalizations {
         AppLanguage.english => 'Sample text',
         AppLanguage.chinese => '示例文字',
       };
+
+  // Cart/Summary
+  String get cart => switch (language) {
+        AppLanguage.italian => 'Riepilogo',
+        AppLanguage.english => 'Summary',
+        AppLanguage.chinese => '汇总',
+      };
+
+  String get noDishesSelected => switch (language) {
+        AppLanguage.italian => 'Nessun piatto selezionato',
+        AppLanguage.english => 'No dishes selected',
+        AppLanguage.chinese => '未选择菜品',
+      };
+
+  String get dishes => switch (language) {
+        AppLanguage.italian => 'Piatti',
+        AppLanguage.english => 'Dishes',
+        AppLanguage.chinese => '菜品',
+      };
+
+  String dishesCount(int count) => switch (language) {
+        AppLanguage.italian => '$count piatti',
+        AppLanguage.english => '$count dishes',
+        AppLanguage.chinese => '$count 道菜',
+      };
+
+  String get testSound => switch (language) {
+        AppLanguage.italian => 'Test suono',
+        AppLanguage.english => 'Test sound',
+        AppLanguage.chinese => '测试声音',
+      };
+
+  String get newOrderSound => switch (language) {
+        AppLanguage.italian => 'Suono nuovo ordine',
+        AppLanguage.english => 'New order sound',
+        AppLanguage.chinese => '新订单提示音',
+      };
+
+  // Analytics - nuove traduzioni
+  String get comparedToPrevious => switch (language) {
+        AppLanguage.italian => 'vs periodo precedente',
+        AppLanguage.english => 'vs previous period',
+        AppLanguage.chinese => '与上期相比',
+      };
+
+  String get categoryBreakdown => switch (language) {
+        AppLanguage.italian => 'Per Categoria',
+        AppLanguage.english => 'By Category',
+        AppLanguage.chinese => '按类别',
+      };
+
+  String get bestDayOfWeek => switch (language) {
+        AppLanguage.italian => 'Giorno Migliore',
+        AppLanguage.english => 'Best Day',
+        AppLanguage.chinese => '最佳日',
+      };
+
+  String get peakHours => switch (language) {
+        AppLanguage.italian => 'Ore di Punta',
+        AppLanguage.english => 'Peak Hours',
+        AppLanguage.chinese => '高峰时段',
+      };
+
+  String get noData => switch (language) {
+        AppLanguage.italian => 'Nessun dato',
+        AppLanguage.english => 'No data',
+        AppLanguage.chinese => '暂无数据',
+      };
+
+  String get avgRevenue => switch (language) {
+        AppLanguage.italian => 'Media',
+        AppLanguage.english => 'Average',
+        AppLanguage.chinese => '平均',
+      };
+
+  String dayOfWeek(int weekday) {
+    final days = switch (language) {
+      AppLanguage.italian => ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'],
+      AppLanguage.english => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+      AppLanguage.chinese => ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+    };
+    return days[weekday - 1];
+  }
+
+  String dayOfWeekFull(int weekday) {
+    final days = switch (language) {
+      AppLanguage.italian => ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'],
+      AppLanguage.english => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+      AppLanguage.chinese => ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'],
+    };
+    return days[weekday - 1];
+  }
+
+  // Connectivity / Offline
+  String get offline => switch (language) {
+        AppLanguage.italian => 'Offline',
+        AppLanguage.english => 'Offline',
+        AppLanguage.chinese => '离线',
+      };
+
+  String get online => switch (language) {
+        AppLanguage.italian => 'Online',
+        AppLanguage.english => 'Online',
+        AppLanguage.chinese => '在线',
+      };
+
+  String get syncing => switch (language) {
+        AppLanguage.italian => 'Sincronizzazione...',
+        AppLanguage.english => 'Syncing...',
+        AppLanguage.chinese => '同步中...',
+      };
+
+  String get pendingActions => switch (language) {
+        AppLanguage.italian => 'azioni in attesa',
+        AppLanguage.english => 'pending actions',
+        AppLanguage.chinese => '待处理操作',
+      };
+
+  String get syncComplete => switch (language) {
+        AppLanguage.italian => 'Sincronizzazione completata',
+        AppLanguage.english => 'Sync complete',
+        AppLanguage.chinese => '同步完成',
+      };
+
+  String get connectionRestored => switch (language) {
+        AppLanguage.italian => 'Connessione ripristinata',
+        AppLanguage.english => 'Connection restored',
+        AppLanguage.chinese => '连接已恢复',
+      };
 }

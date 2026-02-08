@@ -13,6 +13,15 @@ import '../../../../core/tutorial/tutorials.dart';
 import '../../data/models/menu_item_model.dart';
 import '../providers/menu_provider.dart';
 
+/// Estrae il numero dal nome (es. 21 da "21. Riso Xin Xing")
+int? _extractNumber(String name) {
+  final match = RegExp(r'^(\d+)\.?\s*').firstMatch(name);
+  if (match != null) {
+    return int.tryParse(match.group(1)!);
+  }
+  return null;
+}
+
 class MenuScreen extends ConsumerWidget {
   const MenuScreen({super.key});
 
@@ -71,6 +80,18 @@ class _MenuScreenContent extends ConsumerWidget {
           final grouped = <String, List<MenuItemModel>>{};
           for (final item in items) {
             grouped.putIfAbsent(item.category, () => []).add(item);
+          }
+
+          // Ordina i piatti per numero all'interno di ogni categoria
+          for (final category in grouped.keys) {
+            grouped[category]!.sort((a, b) {
+              final numA = _extractNumber(a.name);
+              final numB = _extractNumber(b.name);
+              if (numA != null && numB != null) {
+                return numA.compareTo(numB);
+              }
+              return a.name.compareTo(b.name);
+            });
           }
 
           // Ordina le categorie secondo l'ordine del menu

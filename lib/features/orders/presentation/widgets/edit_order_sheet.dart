@@ -53,6 +53,7 @@ class _EditOrderSheetState extends ConsumerState<EditOrderSheet>
   bool _isLoading = false;
   bool _hasChanges = false;
   late TabController _tabController;
+  late int _numberOfPeople; // Numero persone modificabile
 
   @override
   void initState() {
@@ -67,6 +68,7 @@ class _EditOrderSheetState extends ConsumerState<EditOrderSheet>
     }
     _originalNotes = widget.order.notes ?? '';
     _notesController.text = _originalNotes;
+    _numberOfPeople = widget.order.numberOfPeople ?? 2;
     
     // Listener per tracciare modifiche alle note in tempo reale
     _notesController.addListener(_checkNotesChanged);
@@ -102,7 +104,7 @@ class _EditOrderSheetState extends ConsumerState<EditOrderSheet>
 
   double _getCoverChargeTotal(double coverCharge) {
     if (widget.order.isTakeaway) return 0;
-    return coverCharge * (widget.order.numberOfPeople ?? 0);
+    return coverCharge * _numberOfPeople;
   }
 
   double _getTotal(double coverCharge) {
@@ -148,6 +150,7 @@ class _EditOrderSheetState extends ConsumerState<EditOrderSheet>
             total,
             widget.order.items, // oldItems per confronto
             notes: _notesController.text,
+            numberOfPeople: widget.order.isTakeaway ? null : _numberOfPeople,
           );
 
       if (mounted) Navigator.pop(context);
@@ -180,7 +183,7 @@ class _EditOrderSheetState extends ConsumerState<EditOrderSheet>
     return DraggableScrollableSheet(
       initialChildSize: 0.95,
       minChildSize: 0.5,
-      maxChildSize: 0.95,
+      maxChildSize: 1.0,
       expand: false,
       builder: (context, scrollController) {
         return Column(
@@ -236,32 +239,23 @@ class _EditOrderSheetState extends ConsumerState<EditOrderSheet>
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.order.isTakeaway
-                      ? widget.order.takeawayNumber ?? l10n.takeaway
-                      : '${l10n.table} ${widget.order.tableName ?? ""}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                if (!widget.order.isTakeaway && widget.order.numberOfPeople != null)
-                  Text(
-                    '${widget.order.numberOfPeople} ${l10n.people}',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                  ),
-              ],
+            child: Text(
+              widget.order.isTakeaway
+                  ? widget.order.takeawayNumber ?? l10n.takeaway
+                  : '${l10n.table} ${widget.order.tableName ?? ""}',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ),
-          // Badge "Modifica" - solo indicativo, non cliccabile
-          Text(
-            '✏️ ${l10n.edit}',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey.shade500,
-              fontStyle: FontStyle.italic,
+          // Selettore persone (solo per tavolo)
+          if (!widget.order.isTakeaway)
+            _CompactPeopleSelector(
+              value: _numberOfPeople,
+              onChanged: (v) => setState(() {
+                _numberOfPeople = v;
+                _hasChanges = true;
+              }),
             ),
-          ),
+          const SizedBox(width: 8),
           IconButton(
             onPressed: () {
               if (_hasChanges) {
@@ -721,5 +715,55 @@ class _CompactMenuItem extends StatelessWidget {
 
   static String _extractName(String name) {
     return name.replaceFirst(RegExp(r'^\d+\.?\s*'), '');
+  }
+}
+
+/// Selettore persone compatto
+class _CompactPeopleSelector extends StatelessWidget {
+  final int value;
+  final void Function(int) onChanged;
+
+  const _CompactPeopleSelector({
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Theme.of(context).colorScheme.outline),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            onTap: value > 1 ? () => onChanged(value - 1) : null,
+            child: Padding(
+              padding: const EdgeInsets.all(6),
+              child: Icon(Icons.remove, size: 18, color: value > 1 ? null : Colors.grey),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Row(
+              children: [
+                const Icon(Icons.people, size: 16),
+                const SizedBox(width: 4),
+                Text('$value', style: const TextStyle(fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+          InkWell(
+            onTap: value < 50 ? () => onChanged(value + 1) : null,
+            child: Padding(
+              padding: const EdgeInsets.all(6),
+              child: Icon(Icons.add, size: 18, color: value < 50 ? null : Colors.grey),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

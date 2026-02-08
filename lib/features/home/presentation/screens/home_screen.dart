@@ -49,6 +49,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final language = ref.watch(languageProvider);
     final l10n = AppLocalizations(language);
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
 
     final destinations = [
       NavigationDestination(
@@ -70,32 +71,44 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Xin Xing 新星'),
+        toolbarHeight: isLandscape ? 48 : kToolbarHeight,
+        title: Text(
+          'Xin Xing 新星',
+          style: TextStyle(fontSize: isLandscape ? 18 : null),
+        ),
         actions: [
           // Close day button
           IconButton(
-            icon: const Icon(Icons.summarize),
+            icon: Icon(Icons.summarize, size: isLandscape ? 22 : 24),
             tooltip: l10n.closeDay,
             onPressed: () => _showDaySummary(context, ref, l10n),
           ),
           IconButton(
-            icon: const Icon(Icons.settings),
+            icon: Icon(Icons.settings, size: isLandscape ? 22 : 24),
             tooltip: l10n.settings,
             onPressed: () => _showSettingsDialog(context, ref, l10n),
           ),
           // Exit to role selection
           IconButton(
-            icon: const Icon(Icons.exit_to_app),
+            icon: Icon(Icons.exit_to_app, size: isLandscape ? 22 : 24),
             tooltip: l10n.exit,
             onPressed: () => context.go('/role'),
           ),
         ],
       ),
       body: widget.child,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: _onDestinationSelected,
-        destinations: destinations,
+      bottomNavigationBar: NavigationBarTheme(
+        data: NavigationBarThemeData(
+          height: isLandscape ? 56 : 80,
+          labelBehavior: isLandscape 
+              ? NavigationDestinationLabelBehavior.alwaysHide 
+              : NavigationDestinationLabelBehavior.alwaysShow,
+        ),
+        child: NavigationBar(
+          selectedIndex: _selectedIndex,
+          onDestinationSelected: _onDestinationSelected,
+          destinations: destinations,
+        ),
       ),
     );
   }
@@ -149,6 +162,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
+            actionsOverflowDirection: VerticalDirection.up,
+            actionsOverflowButtonSpacing: 8,
             title: Row(
               children: [
                 const Icon(Icons.summarize, size: 28),
@@ -267,19 +282,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
             actions: [
-              // View analytics button
-              TextButton.icon(
+              // View analytics button - solo icona con tooltip
+              IconButton(
                 icon: const Icon(Icons.bar_chart),
-                label: Text(l10n.viewAnalytics),
+                tooltip: l10n.viewAnalytics,
                 onPressed: () {
                   Navigator.pop(ctx);
                   context.push('/analytics');
                 },
               ),
-              // Save and close button
-              FilledButton.icon(
-                icon: const Icon(Icons.save),
-                label: Text(orderCount > 0 ? l10n.closeDay : l10n.close),
+              // Save and close button - compatto
+              FilledButton(
                 onPressed: () async {
                   if (orderCount > 0) {
                     await ref.read(analyticsProvider.notifier).saveDaySummary(paidToday, businessDate);
@@ -291,6 +304,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   }
                   if (ctx.mounted) Navigator.pop(ctx);
                 },
+                child: Text(orderCount > 0 ? l10n.save : l10n.close),
               ),
             ],
           ),

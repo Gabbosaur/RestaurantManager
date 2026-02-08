@@ -182,4 +182,101 @@ class AnalyticsNotifier extends StateNotifier<AsyncValue<List<DailySummaryModel>
       'topDishes': top10,
     };
   }
+
+  /// Calcola il confronto con il periodo precedente
+  /// Ritorna la variazione percentuale dell'incasso
+  double? calculatePreviousPeriodComparison(int year, int month, {bool isYearly = false}) {
+    double currentRevenue;
+    double previousRevenue;
+
+    if (isYearly) {
+      final currentSummaries = getSummariesForYear(year);
+      final previousSummaries = getSummariesForYear(year - 1);
+      currentRevenue = currentSummaries.fold<double>(0, (sum, s) => sum + s.totalRevenue);
+      previousRevenue = previousSummaries.fold<double>(0, (sum, s) => sum + s.totalRevenue);
+    } else {
+      final currentSummaries = getSummariesForMonth(year, month);
+      // Mese precedente
+      final prevMonth = month == 1 ? 12 : month - 1;
+      final prevYear = month == 1 ? year - 1 : year;
+      final previousSummaries = getSummariesForMonth(prevYear, prevMonth);
+      currentRevenue = currentSummaries.fold<double>(0, (sum, s) => sum + s.totalRevenue);
+      previousRevenue = previousSummaries.fold<double>(0, (sum, s) => sum + s.totalRevenue);
+    }
+
+    if (previousRevenue == 0) return null;
+    return ((currentRevenue - previousRevenue) / previousRevenue) * 100;
+  }
+
+  /// Calcola la distribuzione per categoria
+  Map<String, double> calculateCategoryBreakdown(List<DailySummaryModel> summaries) {
+    final categoryRevenue = <String, double>{};
+    
+    for (final summary in summaries) {
+      for (final dish in summary.dishSales) {
+        final category = dish.category.isEmpty ? 'Altro' : dish.category;
+        categoryRevenue[category] = (categoryRevenue[category] ?? 0) + dish.totalRevenue;
+      }
+    }
+    
+    return categoryRevenue;
+  }
+
+  /// Calcola il giorno della settimana migliore
+  /// Ritorna {weekday: 1-7, avgRevenue: double, totalRevenue: double, daysCount: int}
+  Map<String, dynamic>? calculateBestDayOfWeek(List<DailySummaryModel> summaries) {
+    if (summaries.isEmpty) return null;
+
+    // Raggruppa per giorno della settimana
+    final weekdayData = <int, List<double>>{};
+    for (final s in summaries) {
+      final weekday = s.date.weekday; // 1 = Monday, 7 = Sunday
+      weekdayData[weekday] = (weekdayData[weekday] ?? [])..add(s.totalRevenue);
+    }
+
+    if (weekdayData.isEmpty) return null;
+
+    // Trova il giorno con la media più alta
+    int bestDay = 1;
+    double bestAvg = 0;
+    
+    weekdayData.forEach((weekday, revenues) {
+      final avg = revenues.reduce((a, b) => a + b) / revenues.length;
+      if (avg > bestAvg) {
+        bestAvg = avg;
+        bestDay = weekday;
+      }
+    });
+
+    final revenues = weekdayData[bestDay]!;
+    return {
+      'weekday': bestDay,
+      'avgRevenue': bestAvg,
+      'totalRevenue': revenues.reduce((a, b) => a + b),
+      'daysCount': revenues.length,
+    };
+  }
+
+  /// Calcola statistiche per tutti i giorni della settimana
+  List<Map<String, dynamic>> calculateWeekdayStats(List<DailySummaryModel> summaries) {
+    final weekdayData = <int, List<double>>{};
+    for (final s in summaries) {
+      final weekday = s.date.weekday;
+      weekdayData[weekday] = (weekdayData[weekday] ?? [])..add(s.totalRevenue);
+    }
+
+    final stats = <Map<String, dynamic>>[];
+    for (int day = 1; day <= 7; day++) {
+      final revenues = weekdayData[day] ?? [];
+      final total = revenues.isEmpty ? 0.0 : revenues.reduce((a, b) => a + b);
+      final avg = revenues.isEmpty ? 0.0 : total / revenues.length;
+      stats.add({
+        'weekday': day,
+        'avgRevenue': avg,
+        'totalRevenue': total,
+        'daysCount': revenues.length,
+      });
+    }
+    return stats;
+  }
 }

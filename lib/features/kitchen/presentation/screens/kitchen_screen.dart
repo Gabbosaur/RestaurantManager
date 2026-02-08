@@ -7,6 +7,7 @@ import '../../../../core/config/display_settings_provider.dart';
 import '../../../../core/config/text_size_provider.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/l10n/language_provider.dart';
+import '../../../../core/services/notification_sound_service.dart';
 import '../../../../core/theme/theme_provider.dart';
 import '../../../../core/tutorial/tutorial_service.dart';
 import '../../../../core/tutorial/tutorial_wrapper.dart';
@@ -40,6 +41,47 @@ class _KitchenScreenContent extends ConsumerWidget {
         maxChildSize: 0.95,
         expand: false,
         builder: (context, scrollController) => const InventoryScreen(),
+      ),
+    );
+  }
+
+  void _showQuickMenu(BuildContext context, WidgetRef ref, AppLocalizations l10n) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.inventory_2),
+                title: Text(l10n.inventory),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showIngredientsSheet(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.settings),
+                title: Text(l10n.settings),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showSettingsDialog(context, ref, l10n);
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.exit_to_app, color: Colors.red),
+                title: Text(l10n.exit, style: const TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(context);
+                  context.go('/role');
+                },
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -105,6 +147,22 @@ class _KitchenScreenContent extends ConsumerWidget {
                     onChanged: (value) {
                       ref.read(hideKitchenBeveragesProvider.notifier).set(!value);
                     },
+                  ),
+                  const SizedBox(height: 20),
+                  // Sound test section
+                  Text(
+                    l10n.newOrderSound,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      NotificationSoundService().playNewOrderSound();
+                    },
+                    icon: const Icon(Icons.volume_up),
+                    label: Text(l10n.testSound),
                   ),
                   const SizedBox(height: 20),
                   // Theme section
@@ -188,16 +246,19 @@ class _KitchenScreenContent extends ConsumerWidget {
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 800;
     final hideBeverages = ref.watch(hideKitchenBeveragesProvider);
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
 
     return Scaffold(
-      appBar: AppBar(
+      // Nascondi AppBar in landscape su schermi grandi
+      appBar: (isLandscape && !isSmallScreen) ? null : AppBar(
+        toolbarHeight: isLandscape ? 48 : kToolbarHeight,
         title: Row(
           children: [
-            const Icon(Icons.restaurant, size: 28),
-            const SizedBox(width: 12),
+            Icon(Icons.restaurant, size: isLandscape ? 22 : 28),
+            SizedBox(width: isLandscape ? 8 : 12),
             Text(
               l10n.kitchen,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: isLandscape ? 18 : 24),
             ),
           ],
         ),
@@ -205,24 +266,31 @@ class _KitchenScreenContent extends ConsumerWidget {
         actions: [
           // Ingredients button
           IconButton(
-            icon: const Icon(Icons.inventory_2, size: 28),
+            icon: Icon(Icons.inventory_2, size: isLandscape ? 22 : 28),
             tooltip: l10n.inventory,
             onPressed: () => _showIngredientsSheet(context),
           ),
           // Settings button
           IconButton(
-            icon: const Icon(Icons.settings, size: 28),
+            icon: Icon(Icons.settings, size: isLandscape ? 22 : 28),
             tooltip: l10n.settings,
             onPressed: () => _showSettingsDialog(context, ref, l10n),
           ),
           // Exit button
           IconButton(
-            icon: const Icon(Icons.exit_to_app, size: 28),
+            icon: Icon(Icons.exit_to_app, size: isLandscape ? 22 : 28),
             tooltip: l10n.exit,
             onPressed: () => context.go('/role'),
           ),
         ],
       ),
+      // FAB con menu in landscape
+      floatingActionButton: (isLandscape && !isSmallScreen) ? FloatingActionButton.small(
+        onPressed: () => _showQuickMenu(context, ref, l10n),
+        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+        child: const Icon(Icons.menu),
+      ) : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
       body: ordersAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(child: Text('Error: $error')),
@@ -264,6 +332,7 @@ class _KitchenScreenContent extends ConsumerWidget {
                       .clearChanges(orderId),
                   l10n: l10n,
                   hideBeverages: hideBeverages,
+                  isLandscape: isLandscape,
                 ),
               ),
               const VerticalDivider(width: 1),
@@ -283,6 +352,7 @@ class _KitchenScreenContent extends ConsumerWidget {
                       .clearChanges(orderId),
                   l10n: l10n,
                   hideBeverages: hideBeverages,
+                  isLandscape: isLandscape,
                 ),
               ),
               const VerticalDivider(width: 1),
@@ -302,6 +372,7 @@ class _KitchenScreenContent extends ConsumerWidget {
                       .clearChanges(orderId),
                   l10n: l10n,
                   hideBeverages: hideBeverages,
+                  isLandscape: isLandscape,
                 ),
               ),
             ],
@@ -478,6 +549,7 @@ class _OrderColumn extends StatelessWidget {
   final AppLocalizations l10n;
   final bool showHeader;
   final bool hideBeverages;
+  final bool isLandscape;
 
   const _OrderColumn({
     required this.title,
@@ -490,6 +562,7 @@ class _OrderColumn extends StatelessWidget {
     this.onDismissChanges,
     this.showHeader = true,
     this.hideBeverages = true,
+    this.isLandscape = false,
   });
 
   @override
@@ -498,41 +571,72 @@ class _OrderColumn extends StatelessWidget {
       color: color.withOpacity(0.05),
       child: Column(
         children: [
-          // Header (optional)
+          // Header (optional) - compatto in landscape
           if (showHeader)
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 16),
+              padding: EdgeInsets.symmetric(vertical: isLandscape ? 6 : 16),
               color: color.withOpacity(0.2),
-              child: Column(
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: color.shade700,
+              child: isLandscape
+                  // Layout compatto orizzontale per landscape
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: color.shade700,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: color,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${orders.length}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  // Layout verticale per portrait
+                  : Column(
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: color.shade700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: color,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${orders.length}',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: color,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '${orders.length}',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
             ),
           // Orders list
           Expanded(

@@ -59,7 +59,7 @@ class _OrderDetailSheetState extends ConsumerState<OrderDetailSheet> {
     return DraggableScrollableSheet(
       initialChildSize: 0.98,
       minChildSize: 0.5,
-      maxChildSize: 0.98,
+      maxChildSize: 1.0,
       expand: false,
       builder: (context, scrollController) {
         return Container(

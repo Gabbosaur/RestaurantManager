@@ -52,12 +52,13 @@ class _TutorialOverlayState extends State<TutorialOverlay> {
     final step = widget.steps[_currentStep];
     final isLast = _currentStep == widget.steps.length - 1;
     final colorScheme = Theme.of(context).colorScheme;
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
     
     return Material(
       color: Colors.black87,
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(isLandscape ? 16 : 24),
           child: Column(
             children: [
               // Skip button
@@ -72,47 +73,96 @@ class _TutorialOverlayState extends State<TutorialOverlay> {
                 ),
               ),
               
-              const Spacer(),
-              
-              // Icon
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: colorScheme.primaryContainer,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  step.icon,
-                  size: 64,
-                  color: colorScheme.primary,
+              // Contenuto scrollabile
+              Expanded(
+                child: SingleChildScrollView(
+                  child: isLandscape
+                      // Layout orizzontale per landscape
+                      ? Row(
+                          children: [
+                            // Icon a sinistra
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: colorScheme.primaryContainer,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                step.icon,
+                                size: 48,
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 24),
+                            // Testo a destra
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    step.title,
+                                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    step.description,
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      color: Colors.white70,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        )
+                      // Layout verticale per portrait
+                      : Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const SizedBox(height: 16),
+                            // Icon
+                            Container(
+                              padding: const EdgeInsets.all(24),
+                              decoration: BoxDecoration(
+                                color: colorScheme.primaryContainer,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                step.icon,
+                                size: 64,
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                            const SizedBox(height: 32),
+                            // Title
+                            Text(
+                              step.title,
+                              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                            // Description
+                            Text(
+                              step.description,
+                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                color: Colors.white70,
+                                height: 1.5,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        ),
                 ),
               ),
-              
-              const SizedBox(height: 32),
-              
-              // Title
-              Text(
-                step.title,
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // Description
-              Text(
-                step.description,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Colors.white70,
-                  height: 1.5,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              
-              const Spacer(),
               
               // Progress dots
               Row(
@@ -133,7 +183,7 @@ class _TutorialOverlayState extends State<TutorialOverlay> {
                 ),
               ),
               
-              const SizedBox(height: 32),
+              SizedBox(height: isLandscape ? 12 : 32),
               
               // Navigation buttons
               Row(
@@ -145,7 +195,7 @@ class _TutorialOverlayState extends State<TutorialOverlay> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.white,
                           side: const BorderSide(color: Colors.white30),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          padding: EdgeInsets.symmetric(vertical: isLandscape ? 10 : 16),
                         ),
                         child: const Text('Indietro'),
                       ),
@@ -160,7 +210,7 @@ class _TutorialOverlayState extends State<TutorialOverlay> {
                     child: FilledButton(
                       onPressed: _nextStep,
                       style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        padding: EdgeInsets.symmetric(vertical: isLandscape ? 10 : 16),
                       ),
                       child: Text(isLast ? 'Inizia!' : 'Avanti'),
                     ),

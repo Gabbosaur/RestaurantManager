@@ -345,14 +345,16 @@ class _CompactOrderCard extends StatelessWidget {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Bevande in cima (compatte su una riga)
-                    ..._buildBeveragesSection(order),
-                    // Piatti
-                    ..._buildFoodSection(order),
-                  ],
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Bevande in cima (compatte su una riga)
+                      ..._buildBeveragesSection(order),
+                      // Piatti
+                      ..._buildFoodSection(order),
+                    ],
+                  ),
                 ),
               ),
             ),

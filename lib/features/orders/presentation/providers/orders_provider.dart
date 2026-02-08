@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/services/connectivity_service.dart';
 import '../../../../core/services/notification_sound_service.dart';
+import '../../../../core/services/offline_storage_service.dart';
+import '../../../../core/services/sync_service.dart';
 import '../../../../services/supabase_service.dart';
 import '../../../tables/presentation/providers/tables_provider.dart';
 import '../../data/models/order_model.dart';
@@ -154,13 +157,66 @@ class OrdersNotifier extends AsyncNotifier<List<OrderModel>> {
         orderToInsert = order.copyWith(takeawayNumber: takeawayNumber);
       }
       
-      await SupabaseService.client.from('orders').insert(orderToInsert.toJson());
-      ref.invalidateSelf();
+      // Controlla se siamo online
+      final isOnline = ref.read(connectivityProvider) == ConnectivityState.online;
+      
+      if (isOnline) {
+        await SupabaseService.client.from('orders').insert(orderToInsert.toJson());
+      } else {
+        // Salva in coda offline
+        await OfflineStorageService.instance.addPendingAction(PendingAction(
+          id: '',
+          type: PendingActionType.createOrder,
+          data: orderToInsert.toJson(),
+          timestamp: DateTime.now(),
+        ));
+        ref.read(pendingActionsCountProvider.notifier).state = 
+            OfflineStorageService.instance.pendingActionsCount;
+        
+        // Aggiungi l'ordine localmente per mostrarlo nella UI
+        final currentOrders = state.valueOrNull ?? [];
+        state = AsyncData([orderToInsert, ...currentOrders]);
+      }
+      
+      if (isOnline) ref.invalidateSelf();
       return true;
     } catch (e) {
+      // Se fallisce per problemi di rete, salva offline
+      if (_isNetworkError(e)) {
+        try {
+          var orderToInsert = order;
+          if (order.isTakeaway && order.takeawayNumber == null) {
+            orderToInsert = order.copyWith(takeawayNumber: 'A?'); // Placeholder
+          }
+          
+          await OfflineStorageService.instance.addPendingAction(PendingAction(
+            id: '',
+            type: PendingActionType.createOrder,
+            data: orderToInsert.toJson(),
+            timestamp: DateTime.now(),
+          ));
+          ref.read(pendingActionsCountProvider.notifier).state = 
+              OfflineStorageService.instance.pendingActionsCount;
+          ref.read(connectivityProvider.notifier).setOffline();
+          
+          // Aggiungi l'ordine localmente
+          final currentOrders = state.valueOrNull ?? [];
+          state = AsyncData([orderToInsert, ...currentOrders]);
+          return true;
+        } catch (_) {}
+      }
       ref.read(orderErrorProvider.notifier).state = OrderError.createFailed;
       return false;
     }
+  }
+  
+  bool _isNetworkError(dynamic error) {
+    final errorStr = error.toString().toLowerCase();
+    return errorStr.contains('socket') ||
+           errorStr.contains('connection') ||
+           errorStr.contains('timeout') ||
+           errorStr.contains('network') ||
+           errorStr.contains('host');
   }
   
   /// Genera il prossimo numero takeaway del giorno (A1, A2, A3...)
@@ -205,6 +261,22 @@ class OrdersNotifier extends AsyncNotifier<List<OrderModel>> {
     newOrders[orderIndex] = optimisticOrder;
     state = AsyncData(newOrders);
 
+    // Controlla se siamo online
+    final isOnline = ref.read(connectivityProvider) == ConnectivityState.online;
+
+    if (!isOnline) {
+      // Salva in coda offline
+      await OfflineStorageService.instance.addPendingAction(PendingAction(
+        id: '',
+        type: PendingActionType.updateOrderStatus,
+        data: {'order_id': orderId, 'status': status.name},
+        timestamp: DateTime.now(),
+      ));
+      ref.read(pendingActionsCountProvider.notifier).state = 
+          OfflineStorageService.instance.pendingActionsCount;
+      return;
+    }
+
     // Chiamata al server
     try {
       final Map<String, dynamic> updateData = {
@@ -219,8 +291,21 @@ class OrdersNotifier extends AsyncNotifier<List<OrderModel>> {
       
       await SupabaseService.client.from('orders').update(updateData).eq('id', orderId);
     } catch (e) {
-      // ROLLBACK
-      state = AsyncData(orders);
+      if (_isNetworkError(e)) {
+        // Salva offline e mantieni optimistic update
+        await OfflineStorageService.instance.addPendingAction(PendingAction(
+          id: '',
+          type: PendingActionType.updateOrderStatus,
+          data: {'order_id': orderId, 'status': status.name},
+          timestamp: DateTime.now(),
+        ));
+        ref.read(pendingActionsCountProvider.notifier).state = 
+            OfflineStorageService.instance.pendingActionsCount;
+        ref.read(connectivityProvider.notifier).setOffline();
+      } else {
+        // ROLLBACK
+        state = AsyncData(orders);
+      }
     }
   }
 
@@ -240,7 +325,8 @@ class OrdersNotifier extends AsyncNotifier<List<OrderModel>> {
       List<OrderItem> newItems,
       double total,
       List<OrderItem> oldItems,
-      {String? notes}) async {
+      {String? notes,
+      int? numberOfPeople}) async {
     try {
       // Calcola le modifiche confrontando vecchi e nuovi items
       final changes = _calculateChanges(oldItems, newItems);
@@ -268,6 +354,10 @@ class OrdersNotifier extends AsyncNotifier<List<OrderModel>> {
         'notes': notes?.isNotEmpty == true ? notes : null,
         'updated_at': DateTime.now().toIso8601String(),
       };
+      
+      if (numberOfPeople != null) {
+        updateData['number_of_people'] = numberOfPeople;
+      }
       
       if (shouldChangeStatus) {
         updateData['status'] = OrderStatus.preparing.name;

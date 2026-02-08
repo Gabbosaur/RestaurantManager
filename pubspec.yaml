@@ -31,6 +31,10 @@ dependencies:
   
   # Local Storage
   shared_preferences: ^2.2.2
+  hive_flutter: ^1.1.0
+  
+  # Connectivity
+  connectivity_plus: ^6.0.3
   
   # Environment variables
   flutter_dotenv: ^5.1.0

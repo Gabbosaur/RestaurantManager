@@ -278,7 +278,7 @@ class _CreateOrderSheetState extends ConsumerState<CreateOrderSheet>
     return DraggableScrollableSheet(
       initialChildSize: 0.95,
       minChildSize: 0.5,
-      maxChildSize: 0.95,
+      maxChildSize: 1.0,
       expand: false,
       builder: (context, scrollController) {
         // Se deve selezionare tavolo/asporto, mostra schermata dedicata
@@ -393,6 +393,18 @@ class _CreateOrderSheetState extends ConsumerState<CreateOrderSheet>
               ),
               child: Row(
                 children: [
+                  // Carrello (icona che apre dialog con lista piatti)
+                  IconButton(
+                    onPressed: _selectedItems.isEmpty
+                        ? null
+                        : () => _showCartDialog(l10n, coverCharge),
+                    icon: Badge(
+                      isLabelVisible: _selectedItems.isNotEmpty,
+                      label: Text('$_totalItemsCount'),
+                      child: const Icon(Icons.shopping_cart),
+                    ),
+                    tooltip: l10n.cart,
+                  ),
                   // Note (icona che apre dialog)
                   IconButton(
                     onPressed: () => _showNotesDialog(l10n),
@@ -405,23 +417,13 @@ class _CreateOrderSheetState extends ConsumerState<CreateOrderSheet>
                   const SizedBox(width: 8),
                   // Totale
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '$_totalItemsCount piatti',
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                        ),
-                        Text(
-                          '€${_getTotal(coverCharge).toStringAsFixed(2)}',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      '€${_getTotal(coverCharge).toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
                   ),
                   // Bottone crea ordine
@@ -765,6 +767,189 @@ class _CreateOrderSheetState extends ConsumerState<CreateOrderSheet>
             child: const Text('OK'),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Dialog carrello - mostra tutti i piatti selezionati
+  void _showCartDialog(AppLocalizations l10n, double coverCharge) {
+    final menuItems = ref.read(menuProvider).valueOrNull ?? [];
+    
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          // Raggruppa per categoria
+          final itemsByCategory = <String, List<MapEntry<MenuItemModel, int>>>{};
+          for (final entry in _selectedItems.entries) {
+            final item = menuItems.firstWhere(
+              (m) => m.id == entry.key,
+              orElse: () => menuItems.first,
+            );
+            final category = item.category;
+            itemsByCategory.putIfAbsent(category, () => []);
+            itemsByCategory[category]!.add(MapEntry(item, entry.value));
+          }
+
+          return AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.shopping_cart),
+                const SizedBox(width: 8),
+                Text(l10n.dishesCount(_totalItemsCount)),
+              ],
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: _selectedItems.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        l10n.noDishesSelected,
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  : ListView(
+                      shrinkWrap: true,
+                      children: itemsByCategory.entries.map((catEntry) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Header categoria
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8, bottom: 4),
+                              child: Text(
+                                catEntry.key,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                            ),
+                            // Piatti in questa categoria
+                            ...catEntry.value.map((itemEntry) {
+                              final item = itemEntry.key;
+                              final qty = itemEntry.value;
+                              final note = _itemNotes[item.id];
+                              final subtotal = item.price * qty;
+
+                              return Dismissible(
+                                key: Key(item.id),
+                                direction: DismissDirection.endToStart,
+                                background: Container(
+                                  alignment: Alignment.centerRight,
+                                  padding: const EdgeInsets.only(right: 16),
+                                  color: Colors.red,
+                                  child: const Icon(Icons.delete, color: Colors.white),
+                                ),
+                                onDismissed: (_) {
+                                  setState(() {
+                                    _selectedItems.remove(item.id);
+                                    _itemNotes.remove(item.id);
+                                  });
+                                  setDialogState(() {});
+                                  // Chiudi se vuoto
+                                  if (_selectedItems.isEmpty) {
+                                    Navigator.pop(dialogContext);
+                                  }
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  child: Row(
+                                    children: [
+                                      // Quantità
+                                      Container(
+                                        width: 28,
+                                        height: 28,
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(context).colorScheme.primaryContainer,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          '$qty',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Theme.of(context).colorScheme.primary,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      // Nome + nota
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              item.name,
+                                              style: const TextStyle(fontSize: 14),
+                                            ),
+                                            if (note != null && note.isNotEmpty)
+                                              Text(
+                                                note,
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.orange.shade700,
+                                                  fontStyle: FontStyle.italic,
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                      // Prezzo
+                                      Text(
+                                        '€${subtotal.toStringAsFixed(2)}',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }),
+                            const Divider(height: 8),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+            ),
+            actions: [
+              // Totale
+              if (_selectedItems.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '${l10n.dishes}: €${_getItemsTotal().toStringAsFixed(2)}',
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                      if (_orderType == OrderType.table)
+                        Text(
+                          '${l10n.coverCharge}: €${_getCoverChargeTotal(coverCharge).toStringAsFixed(2)} ($_numberOfPeople×€${coverCharge.toStringAsFixed(2)})',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${l10n.total}: €${_getTotal(coverCharge).toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: Text(l10n.close),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app.dart';
 import 'core/config/supabase_config.dart';
+import 'core/services/offline_storage_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,6 +35,9 @@ Future<void> main() async {
 
   // Initialize locale data for date formatting
   await initializeDateFormatting('it', null);
+  
+  // Initialize offline storage (Hive)
+  await OfflineStorageService.initialize();
 
   if (!SupabaseConfig.isConfigured) {
     throw Exception(
